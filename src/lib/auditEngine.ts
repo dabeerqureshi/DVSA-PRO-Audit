@@ -136,7 +136,9 @@ export function auditRecords(
     if (milNum !== null && dvsaNum !== null) {
       // Formula: milage - dvsaa most recent entry
       diff = milNum - dvsaNum;
-      if (Math.abs(diff) >= threshold) {
+      // Exclude placeholder auction mileages (1 or 999,999) from the final flagged list
+      const isPlaceholder = milNum === 1 || milNum === 999999;
+      if (Math.abs(diff) >= threshold && !isPlaceholder) {
         isFlagged = true;
       }
       dfVal = Math.round(diff);

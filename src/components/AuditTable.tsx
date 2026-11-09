@@ -35,9 +35,11 @@ export const AuditTable: React.FC<AuditTableProps> = ({
     setTimeout(() => setCopiedReg(null), 1500);
   };
 
-  // ONLY FLAGGED records (threshold = 20,000) are displayed
+  // ONLY FLAGGED records (threshold = 20,000, excluding placeholder mileage 1 or 999,999) are displayed
   const flaggedRecords = useMemo(() => {
-    return records.filter((r) => r._isFlagged);
+    return records.filter(
+      (r) => r._isFlagged && r._parsedMileage !== 1 && r._parsedMileage !== 999999
+    );
   }, [records]);
 
   // Search filter applied to flagged records

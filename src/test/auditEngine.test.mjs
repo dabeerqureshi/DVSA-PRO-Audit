@@ -204,7 +204,8 @@ function audit(milage, dvsaa, threshold = 20000) {
   if (milNum === null || dvsaNum === null) return { isFlagged: false, diff: null, df: '' };
   // Formula: milage - dvsaa most recent entry
   const diff = milNum - dvsaNum;
-  const isFlagged = Math.abs(diff) >= threshold;
+  const isPlaceholder = milNum === 1 || milNum === 999999;
+  const isFlagged = Math.abs(diff) >= threshold && !isPlaceholder;
   return { isFlagged, diff: Math.round(diff), df: isFlagged ? Math.round(diff) : '' };
 }
 
@@ -251,9 +252,9 @@ test('Vehicles audit correctly against 20,000 threshold and d/f contains differe
   assert.equal(res3.isFlagged, true);
   assert.equal(res3.df, 31770);
 
-  const res4 = audit('1', '37k (07/11/2022), 47k (14/11/2023), 57k (08/11/2024), 65k (18/11/2025)', 20000);
+  const res4 = audit('100,951', '27k (13/04/2023), 50k (18/04/2024), 68k (25/03/2025)', 20000);
   assert.equal(res4.isFlagged, true);
-  assert.equal(res4.df, -64999); // 1 - 65000 = -64999
+  assert.equal(res4.df, 32951); // 100951 - 68000 = 32951
 
   const res5 = audit('103,642', '47k (03/09/2024), 73k (14/08/2025)', 20000);
   assert.equal(res5.isFlagged, true);
@@ -265,6 +266,13 @@ test('Vehicles audit correctly against 20,000 threshold and d/f contains differe
 
   const resPass2 = audit('31,000', '30,500', 20000);
   assert.equal(resPass2.isFlagged, false);
+
+  // Placeholder mileages (1 or 999,999) must NOT be flagged in the final list
+  const resPlaceholder1 = audit('1', '37k (07/11/2022), 65k (18/11/2025)', 20000);
+  assert.equal(resPlaceholder1.isFlagged, false);
+
+  const resPlaceholder2 = audit('999,999', '10k (16/11/2021), 31k (18/11/2024)', 20000);
+  assert.equal(resPlaceholder2.isFlagged, false);
 });
 
 test('Real-world auction spreadsheet format with CAP/Glass sub-headers parses and audits with d/f as difference', () => {
