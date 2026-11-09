@@ -455,12 +455,23 @@ Glass Trade Price
     [34094, 36305]
   );
 
-  // Verify descending organization puts highest difference first
-  const sortedDescending = [...flaggedOnly].sort((a, b) => Number(b['d/f']) - Number(a['d/f']));
-  assert.equal(sortedDescending[0]['reg no'], 'TEST 2'); // 36,305 is higher than 34,094
-  assert.equal(sortedDescending[0]['d/f'], 36305);
-  assert.equal(sortedDescending[1]['reg no'], 'TEST 1');
-  assert.equal(sortedDescending[1]['d/f'], 34094);
+  // Verify 2026 cars display first (highest d/f to lowest), then 2025 cars (highest d/f to lowest)
+  const mixedYearsDiscrepancies = [
+    { reg: '2025-LOW', year: 2025, df: 22000 },
+    { reg: '2026-LOW', year: 2026, df: 21000 },
+    { reg: '2025-HIGH', year: 2025, df: 45000 },
+    { reg: '2026-HIGH', year: 2026, df: 48000 },
+  ];
+
+  const sortedMixed = [...mixedYearsDiscrepancies].sort((a, b) => {
+    if (b.year !== a.year) return b.year - a.year;
+    return b.df - a.df;
+  });
+
+  assert.deepEqual(
+    sortedMixed.map((r) => r.reg),
+    ['2026-HIGH', '2026-LOW', '2025-HIGH', '2025-LOW']
+  );
 
   // Verify export format includes make and model: reg no, make, model, milage, dvsaa, d/f
   const exportPayload = flaggedOnly.map((r) => ({

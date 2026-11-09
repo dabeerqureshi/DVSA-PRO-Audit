@@ -36,16 +36,21 @@ export const AuditTable: React.FC<AuditTableProps> = ({
   };
 
   // ONLY FLAGGED records (threshold = 20,000, excluding placeholder mileage 1 or 999,999) are displayed,
-  // organized with the highest difference (d/f) first
+  // organized: 2026 cars first (highest d/f to lowest), then 2025 cars (highest d/f to lowest)
   const flaggedRecords = useMemo(() => {
     return records
       .filter(
         (r) => r._isFlagged && r._parsedMileage !== 1 && r._parsedMileage !== 999999
       )
       .sort((a, b) => {
+        const yearA = a._dvsaYear ?? 0;
+        const yearB = b._dvsaYear ?? 0;
+        if (yearB !== yearA) {
+          return yearB - yearA; // 2026 first, then 2025
+        }
         const valA = typeof a['d/f'] === 'number' ? a['d/f'] : (a._diff ?? 0);
         const valB = typeof b['d/f'] === 'number' ? b['d/f'] : (b._diff ?? 0);
-        return Number(valB) - Number(valA);
+        return Number(valB) - Number(valA); // Highest d/f first within each year
       });
   }, [records]);
 
@@ -91,7 +96,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
             {flaggedRecords.length}
           </span>
           <span className="text-[11px] text-slate-400">
-            (&ge; 20,000 mi difference &middot; 2025/2026 DVSA)
+            (&ge; 20,000 mi difference &middot; 2026 then 2025, highest d/f first)
           </span>
         </div>
 
