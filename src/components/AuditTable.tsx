@@ -84,7 +84,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
             {flaggedRecords.length}
           </span>
           <span className="text-[11px] text-slate-400">
-            (&ge; 20,000 mi difference)
+            (&ge; 20,000 mi difference &middot; 2025/2026 DVSA)
           </span>
         </div>
 

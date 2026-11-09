@@ -22,7 +22,7 @@ export const KpiStats: React.FC<KpiStatsProps> = ({ stats }) => {
               {stats.flagged.toLocaleString()}
             </span>
             <span className="text-xs text-rose-500 font-medium">
-              vehicles &ge; 20,000 mi difference
+              vehicles &ge; 20,000 mi (2025/2026 DVSA)
             </span>
           </div>
         </div>

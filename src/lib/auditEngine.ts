@@ -21,6 +21,7 @@ export function parseMileage(val: any): number | null {
 interface ParsedDvsaEntry {
   value: number | null;
   timestamp: number | null;
+  year: number | null;
   raw: string;
 }
 
@@ -49,6 +50,7 @@ function parseDvsaSingleEntry(entryStr: string): ParsedDvsaEntry {
 
   // Parse date stamps like (DD/MM/YYYY), (DD-MM-YYYY), (DD.MM.YYYY), (YYYY-MM-DD)
   let timestamp: number | null = null;
+  let year: number | null = null;
   const matchDate = trimmed.match(/\((\d{1,4})[\/\.-](\d{1,2})[\/\.-](\d{1,4})\)/);
   if (matchDate) {
     const p1 = parseInt(matchDate[1], 10);
@@ -57,31 +59,38 @@ function parseDvsaSingleEntry(entryStr: string): ParsedDvsaEntry {
 
     if (p1 > 1000) {
       // YYYY-MM-DD
+      year = p1;
       timestamp = new Date(p1, p2 - 1, p3).getTime();
     } else {
       // DD/MM/YYYY or DD/MM/YY
       let y = p3;
       if (y < 100) y += y > 50 ? 1900 : 2000;
+      year = y;
       timestamp = new Date(y, p2 - 1, p1).getTime();
     }
     if (isNaN(timestamp)) {
       timestamp = null;
+      year = null;
     }
   }
 
-  return { value, timestamp, raw: trimmed };
+  return { value, timestamp, year, raw: trimmed };
 }
 
-export function parseLastDvsa(str: any): { value: number | null; rawPart: string } {
-  if (str === null || str === undefined) return { value: null, rawPart: '' };
+export function parseLastDvsa(str: any): {
+  value: number | null;
+  rawPart: string;
+  year: number | null;
+} {
+  if (str === null || str === undefined) return { value: null, rawPart: '', year: null };
   const raw = String(str).trim();
-  if (!raw) return { value: null, rawPart: '' };
+  if (!raw) return { value: null, rawPart: '', year: null };
 
   // Case 1: Pure single numeric reading (e.g. '42,000' or '45000') without dates/letters
   if (/^[\d,.\s]+$/.test(raw)) {
     const clean = raw.replace(/[^\d.]/g, '');
     const num = parseFloat(clean);
-    return { value: isNaN(num) ? null : num, rawPart: raw };
+    return { value: isNaN(num) ? null : num, rawPart: raw, year: null };
   }
 
   // Case 2: Multi-entry history
@@ -99,21 +108,39 @@ export function parseLastDvsa(str: any): { value: number | null; rawPart: string
 
   parts = parts.filter(Boolean);
   if (parts.length === 0) {
-    return { value: null, rawPart: raw };
+    return { value: null, rawPart: raw, year: null };
   }
 
   const parsedEntries = parts.map(parseDvsaSingleEntry);
 
-  // If entries contain valid date stamps, identify the chronologically newest record
+  // Use only 2025 and 2026 entries if present
+  const entries2025_2026 = parsedEntries.filter(
+    (e) => (e.year === 2025 || e.year === 2026) && e.value !== null && e.timestamp !== null
+  );
+
+  if (entries2025_2026.length > 0) {
+    entries2025_2026.sort((a, b) => (b.timestamp as number) - (a.timestamp as number));
+    return {
+      value: entries2025_2026[0].value,
+      rawPart: entries2025_2026[0].raw,
+      year: entries2025_2026[0].year,
+    };
+  }
+
+  // If no 2025/2026 entry, find chronologically newest entry with date to record its year
   const withDates = parsedEntries.filter((e) => e.timestamp !== null && e.value !== null);
   if (withDates.length > 0) {
     withDates.sort((a, b) => (b.timestamp as number) - (a.timestamp as number));
-    return { value: withDates[0].value, rawPart: withDates[0].raw };
+    return {
+      value: withDates[0].value,
+      rawPart: withDates[0].raw,
+      year: withDates[0].year,
+    };
   }
 
   // If no dates, choose the last recorded entry in the string sequence
   const last = parsedEntries[parsedEntries.length - 1];
-  return { value: last.value, rawPart: last.raw };
+  return { value: last.value, rawPart: last.raw, year: last.year };
 }
 
 export function auditRecords(
@@ -129,18 +156,22 @@ export function auditRecords(
     const rawDvsa = String(row[mapping.dvsaCol] ?? '').trim();
 
     const milNum = parseMileage(rawMil);
-    const { value: dvsaNum, rawPart } = parseLastDvsa(rawDvsa);
+    const { value: dvsaNum, rawPart, year: dvsaYear } = parseLastDvsa(rawDvsa);
 
     let isFlagged = false;
     let diff: number | null = null;
     let dfVal: number | string = '';
 
-    if (milNum !== null && dvsaNum !== null) {
-      // Formula: milage - dvsaa most recent entry
+    // Condition 1: Must have 2025 or 2026 DVSA date stamp ("use only 2025 and 2026 data")
+    const isYearValid = dvsaYear === 2025 || dvsaYear === 2026;
+
+    // Condition 2: Mileage must be strictly greater than last DVSA reading ("milage is greater than last dvsa")
+    if (isYearValid && milNum !== null && dvsaNum !== null && milNum > dvsaNum) {
+      // Formula: milage - dvsaa most recent entry (always positive, never negative)
       diff = milNum - dvsaNum;
       // Exclude placeholder auction mileages (1 or 999,999) from the final flagged list
       const isPlaceholder = milNum === 1 || milNum === 999999;
-      if (Math.abs(diff) >= threshold && !isPlaceholder) {
+      if (diff >= threshold && !isPlaceholder) {
         isFlagged = true;
       }
       dfVal = Math.round(diff);
@@ -156,6 +187,7 @@ export function auditRecords(
       _isFlagged: isFlagged,
       _parsedMileage: milNum,
       _parsedDvsa: dvsaNum,
+      _dvsaYear: dvsaYear,
       _diff: diff,
       _lastDvsaRaw: rawPart,
       _rowIdx: idx,

@@ -9,6 +9,7 @@ export interface AuditedRecord {
   _isFlagged: boolean;
   _parsedMileage: number | null;
   _parsedDvsa: number | null;
+  _dvsaYear: number | null;
   _diff: number | null;
   _lastDvsaRaw: string;
   _rowIdx: number;

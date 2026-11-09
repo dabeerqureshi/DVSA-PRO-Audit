@@ -40,6 +40,7 @@ function parseDvsaSingleEntry(entryStr) {
   }
 
   let timestamp = null;
+  let year = null;
   const matchDate = trimmed.match(/\((\d{1,4})[\/\.-](\d{1,2})[\/\.-](\d{1,4})\)/);
   if (matchDate) {
     const p1 = parseInt(matchDate[1], 10);
@@ -47,29 +48,32 @@ function parseDvsaSingleEntry(entryStr) {
     const p3 = parseInt(matchDate[3], 10);
 
     if (p1 > 1000) {
+      year = p1;
       timestamp = new Date(p1, p2 - 1, p3).getTime();
     } else {
       let y = p3;
       if (y < 100) y += y > 50 ? 1900 : 2000;
+      year = y;
       timestamp = new Date(y, p2 - 1, p1).getTime();
     }
     if (isNaN(timestamp)) {
       timestamp = null;
+      year = null;
     }
   }
 
-  return { value, timestamp, raw: trimmed };
+  return { value, timestamp, year, raw: trimmed };
 }
 
 function parseLastDvsa(str) {
-  if (str === null || str === undefined) return { value: null, rawPart: '' };
+  if (str === null || str === undefined) return { value: null, rawPart: '', year: null };
   const raw = String(str).trim();
-  if (!raw) return { value: null, rawPart: '' };
+  if (!raw) return { value: null, rawPart: '', year: null };
 
   if (/^[\d,.\s]+$/.test(raw)) {
     const clean = raw.replace(/[^\d.]/g, '');
     const num = parseFloat(clean);
-    return { value: isNaN(num) ? null : num, rawPart: raw };
+    return { value: isNaN(num) ? null : num, rawPart: raw, year: null };
   }
 
   let parts = [];
@@ -84,18 +88,37 @@ function parseLastDvsa(str) {
 
   parts = parts.filter(Boolean);
   if (parts.length === 0) {
-    return { value: null, rawPart: raw };
+    return { value: null, rawPart: raw, year: null };
   }
 
   const parsedEntries = parts.map(parseDvsaSingleEntry);
+
+  // Use only 2025 and 2026 entries if present
+  const entries2025_2026 = parsedEntries.filter(
+    (e) => (e.year === 2025 || e.year === 2026) && e.value !== null && e.timestamp !== null
+  );
+
+  if (entries2025_2026.length > 0) {
+    entries2025_2026.sort((a, b) => b.timestamp - a.timestamp);
+    return {
+      value: entries2025_2026[0].value,
+      rawPart: entries2025_2026[0].raw,
+      year: entries2025_2026[0].year,
+    };
+  }
+
   const withDates = parsedEntries.filter((e) => e.timestamp !== null && e.value !== null);
   if (withDates.length > 0) {
     withDates.sort((a, b) => b.timestamp - a.timestamp);
-    return { value: withDates[0].value, rawPart: withDates[0].raw };
+    return {
+      value: withDates[0].value,
+      rawPart: withDates[0].raw,
+      year: withDates[0].year,
+    };
   }
 
   const last = parsedEntries[parsedEntries.length - 1];
-  return { value: last.value, rawPart: last.raw };
+  return { value: last.value, rawPart: last.raw, year: last.year };
 }
 
 function detectHeaders(rawSheet) {
@@ -226,12 +249,16 @@ function extractValidVehicleRows(rawSheet, headerRowIndex, mapping, headers) {
 
 function audit(milage, dvsaa, threshold = 20000) {
   const milNum = parseMileage(milage);
-  const { value: dvsaNum } = parseLastDvsa(dvsaa);
-  if (milNum === null || dvsaNum === null) return { isFlagged: false, diff: null, df: '' };
-  // Formula: milage - dvsaa most recent entry
+  const { value: dvsaNum, year: dvsaYear } = parseLastDvsa(dvsaa);
+  const isYearValid = dvsaYear === 2025 || dvsaYear === 2026;
+  // Only perform if MOT date is in 2025/2026 and mileage is greater than last dvsa
+  if (!isYearValid || milNum === null || dvsaNum === null || milNum <= dvsaNum) {
+    return { isFlagged: false, diff: null, df: '' };
+  }
+  // Formula: milage - dvsaa most recent entry (never negative)
   const diff = milNum - dvsaNum;
   const isPlaceholder = milNum === 1 || milNum === 999999;
-  const isFlagged = Math.abs(diff) >= threshold && !isPlaceholder;
+  const isFlagged = diff >= threshold && !isPlaceholder;
   return { isFlagged, diff: Math.round(diff), df: isFlagged ? Math.round(diff) : '' };
 }
 
@@ -270,7 +297,7 @@ test('Vehicles audit correctly against 20,000 threshold and d/f contains differe
   assert.equal(res1.isFlagged, true);
   assert.equal(res1.df, 34094);
 
-  const res2 = audit('114,305', '37k (21/12/2022), 57k (30/11/2023), 78k (17/11/2024)', 20000);
+  const res2 = audit('114,305', '37k (21/12/2022), 57k (30/11/2023), 78k (17/11/2025)', 20000);
   assert.equal(res2.isFlagged, true);
   assert.equal(res2.df, 36305);
 
@@ -286,18 +313,45 @@ test('Vehicles audit correctly against 20,000 threshold and d/f contains differe
   assert.equal(res5.isFlagged, true);
   assert.equal(res5.df, 30642);
 
+  // When DVSA date is from 2024 or older: MUST NOT flag or display even if diff >= 20,000
+  const res2024 = audit('110,000', '70k (10/05/2024)', 20000); // 110k - 70k = 40k >= 20k but year is 2024
+  assert.equal(res2024.isFlagged, false);
+  assert.equal(res2024.diff, null);
+
+  // When DVSA date is from 2025: IS flagged if diff >= 20,000
+  const res2025 = audit('110,000', '70k (10/05/2025)', 20000);
+  assert.equal(res2025.isFlagged, true);
+  assert.equal(res2025.df, 40000);
+
+  // When DVSA date is from 2026: IS flagged if diff >= 20,000
+  const res2026 = audit('110,000', '70k (10/05/2026)', 20000);
+  assert.equal(res2026.isFlagged, true);
+  assert.equal(res2026.df, 40000);
+
   // Non-flagged examples (< 20,000 diff)
-  const resPass1 = audit('45,000', '42,000', 20000);
+  const resPass1 = audit('45,000', '42,000 (01/01/2026)', 20000);
   assert.equal(resPass1.isFlagged, false);
 
-  const resPass2 = audit('31,000', '30,500', 20000);
+  const resPass2 = audit('31,000', '30,500 (01/01/2025)', 20000);
   assert.equal(resPass2.isFlagged, false);
+
+  // When auction mileage is less than or equal to last DVSA reading:
+  // Must NOT perform / flag, and difference answer must NEVER be negative
+  const resLower = audit('50,000', '80k (01/01/2026)', 20000);
+  assert.equal(resLower.isFlagged, false);
+  assert.equal(resLower.diff, null);
+  assert.equal(resLower.df, '');
+
+  const resEqual = audit('60,000', '60k (01/01/2026)', 20000);
+  assert.equal(resEqual.isFlagged, false);
+  assert.equal(resEqual.diff, null);
+  assert.equal(resEqual.df, '');
 
   // Placeholder mileages (1 or 999,999) must NOT be flagged in the final list
   const resPlaceholder1 = audit('1', '37k (07/11/2022), 65k (18/11/2025)', 20000);
   assert.equal(resPlaceholder1.isFlagged, false);
 
-  const resPlaceholder2 = audit('999,999', '10k (16/11/2021), 31k (18/11/2024)', 20000);
+  const resPlaceholder2 = audit('999,999', '10k (16/11/2021), 31k (18/11/2025)', 20000);
   assert.equal(resPlaceholder2.isFlagged, false);
 });
 
@@ -363,9 +417,10 @@ Glass Trade Price
 
   // Verify vehicles with difference >= 20,000 are flagged with exact d/f difference
   const sampleVehiclesWithDiscrepancies = [
-    { reg: 'TEST 1', make: 'AUDI', model: 'A1', mil: '91,094', dvsa: '57k' }, // diff = 34,094 >= 20,000
-    { reg: 'TEST 2', make: 'BMW', model: '3 SERIES', mil: '114,305', dvsa: '78k' }, // diff = 36,305 >= 20,000
-    { reg: 'TEST 3', make: 'FORD', model: 'FIESTA', mil: '45,000', dvsa: '42k' }, // diff = 3,000 < 20,000
+    { reg: 'TEST 1', make: 'AUDI', model: 'A1', mil: '91,094', dvsa: '57k (01/06/2026)' }, // diff = 34,094 >= 20,000, 2026
+    { reg: 'TEST 2', make: 'BMW', model: '3 SERIES', mil: '114,305', dvsa: '78k (15/05/2025)' }, // diff = 36,305 >= 20,000, 2025
+    { reg: 'TEST 3', make: 'FORD', model: 'FIESTA', mil: '45,000', dvsa: '42k (10/04/2026)' }, // diff = 3,000 < 20,000
+    { reg: 'TEST 4', make: 'VW', model: 'GOLF', mil: '100,000', dvsa: '50k (10/04/2024)' }, // diff = 50,000 >= 20,000 BUT year 2024 -> NOT flagged
   ];
 
   const auditedDiscrepancies = sampleVehiclesWithDiscrepancies.map((v) => {
