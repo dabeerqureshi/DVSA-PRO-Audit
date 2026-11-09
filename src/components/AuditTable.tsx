@@ -35,12 +35,17 @@ export const AuditTable: React.FC<AuditTableProps> = ({
     setTimeout(() => setCopiedReg(null), 1500);
   };
 
-  // ONLY FLAGGED records (threshold = 20,000, excluding placeholder mileage 1 or 999,999) are displayed,
+  // ONLY FLAGGED records (threshold = 20,000, excluding placeholder mileage 1, 999,999, and DVSA mileage 0) are displayed,
   // organized: 2026 cars first (highest d/f to lowest), then 2025 cars (highest d/f to lowest)
   const flaggedRecords = useMemo(() => {
     return records
       .filter(
-        (r) => r._isFlagged && r._parsedMileage !== 1 && r._parsedMileage !== 999999
+        (r) =>
+          r._isFlagged &&
+          r._parsedMileage !== 1 &&
+          r._parsedMileage !== 999999 &&
+          r._parsedDvsa !== null &&
+          r._parsedDvsa > 0
       )
       .sort((a, b) => {
         const yearA = a._dvsaYear ?? 0;

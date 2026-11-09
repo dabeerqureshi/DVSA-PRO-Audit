@@ -251,8 +251,9 @@ function audit(milage, dvsaa, threshold = 20000) {
   const milNum = parseMileage(milage);
   const { value: dvsaNum, year: dvsaYear } = parseLastDvsa(dvsaa);
   const isYearValid = dvsaYear === 2025 || dvsaYear === 2026;
-  // Only perform if MOT date is in 2025/2026 and mileage is greater than last dvsa
-  if (!isYearValid || milNum === null || dvsaNum === null || milNum <= dvsaNum) {
+  const isDvsaNonZero = dvsaNum !== null && dvsaNum > 0;
+  // Only perform if MOT date is in 2025/2026, DVSA mileage is > 0, and mileage is greater than last dvsa
+  if (!isYearValid || !isDvsaNonZero || milNum === null || milNum <= dvsaNum) {
     return { isFlagged: false, diff: null, df: '' };
   }
   // Formula: milage - dvsaa most recent entry (never negative)
@@ -353,6 +354,12 @@ test('Vehicles audit correctly against 20,000 threshold and d/f contains differe
 
   const resPlaceholder2 = audit('999,999', '10k (16/11/2021), 31k (18/11/2025)', 20000);
   assert.equal(resPlaceholder2.isFlagged, false);
+
+  // If recent DVSA mileage is 0 (e.g. '0 (11/03/2026)'): MUST NOT be included in the list / flagged
+  const resZeroDvsa = audit('85,000', '0 (11/03/2026)', 20000);
+  assert.equal(resZeroDvsa.isFlagged, false);
+  assert.equal(resZeroDvsa.diff, null);
+  assert.equal(resZeroDvsa.df, '');
 });
 
 test('Real-world auction spreadsheet format with CAP/Glass sub-headers parses and audits with d/f as difference', () => {

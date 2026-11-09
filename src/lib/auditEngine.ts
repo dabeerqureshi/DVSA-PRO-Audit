@@ -165,10 +165,13 @@ export function auditRecords(
     // Condition 1: Must have 2025 or 2026 DVSA date stamp ("use only 2025 and 2026 data")
     const isYearValid = dvsaYear === 2025 || dvsaYear === 2026;
 
-    // Condition 2: Mileage must be strictly greater than last DVSA reading ("milage is greater than last dvsa")
-    if (isYearValid && milNum !== null && dvsaNum !== null && milNum > dvsaNum) {
+    // Condition 2: Recent DVSA mileage must not be zero ("if recent dvssa miage is zero dont include them in the list")
+    const isDvsaNonZero = dvsaNum !== null && dvsaNum > 0;
+
+    // Condition 3: Auction mileage must be strictly greater than last DVSA reading ("milage is greater than last dvsa")
+    if (isYearValid && isDvsaNonZero && milNum !== null && milNum > (dvsaNum as number)) {
       // Formula: milage - dvsaa most recent entry (always positive, never negative)
-      diff = milNum - dvsaNum;
+      diff = milNum - (dvsaNum as number);
       // Exclude placeholder auction mileages (1 or 999,999) from the final flagged list
       const isPlaceholder = milNum === 1 || milNum === 999999;
       if (diff >= threshold && !isPlaceholder) {
