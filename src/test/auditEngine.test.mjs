@@ -5,10 +5,60 @@ function parseMileage(val) {
   if (val === null || val === undefined) return null;
   const str = String(val).trim();
   if (!str) return null;
+
+  const matchK = str.match(/^(\d+(?:\.\d+)?)\s*k$/i);
+  if (matchK) {
+    const base = parseFloat(matchK[1]);
+    return isNaN(base) ? null : Math.round(base * 1000);
+  }
+
   const clean = str.replace(/[^\d.]/g, '');
   if (!clean) return null;
   const num = parseFloat(clean);
   return isNaN(num) ? null : num;
+}
+
+function parseDvsaSingleEntry(entryStr) {
+  const trimmed = entryStr.trim();
+  let value = null;
+
+  const matchK = trimmed.match(/(\d+(?:\.\d+)?)\s*k/i);
+  if (matchK) {
+    const base = parseFloat(matchK[1]);
+    if (!isNaN(base)) {
+      value = Math.round(base * 1000);
+    }
+  } else {
+    const matchNum = trimmed.match(/(\d[\d,]*)/);
+    if (matchNum) {
+      const clean = matchNum[1].replace(/,/g, '');
+      const num = parseFloat(clean);
+      if (!isNaN(num)) {
+        value = num;
+      }
+    }
+  }
+
+  let timestamp = null;
+  const matchDate = trimmed.match(/\((\d{1,4})[\/\.-](\d{1,2})[\/\.-](\d{1,4})\)/);
+  if (matchDate) {
+    const p1 = parseInt(matchDate[1], 10);
+    const p2 = parseInt(matchDate[2], 10);
+    const p3 = parseInt(matchDate[3], 10);
+
+    if (p1 > 1000) {
+      timestamp = new Date(p1, p2 - 1, p3).getTime();
+    } else {
+      let y = p3;
+      if (y < 100) y += y > 50 ? 1900 : 2000;
+      timestamp = new Date(y, p2 - 1, p1).getTime();
+    }
+    if (isNaN(timestamp)) {
+      timestamp = null;
+    }
+  }
+
+  return { value, timestamp, raw: trimmed };
 }
 
 function parseLastDvsa(str) {
@@ -33,26 +83,19 @@ function parseLastDvsa(str) {
   }
 
   parts = parts.filter(Boolean);
-  const lastPart = parts.length > 0 ? parts[parts.length - 1] : raw;
-
-  const matchK = lastPart.match(/(\d+(?:\.\d+)?)\s*k/i);
-  if (matchK) {
-    const base = parseFloat(matchK[1]);
-    if (!isNaN(base)) {
-      return { value: Math.round(base * 1000), rawPart: lastPart };
-    }
+  if (parts.length === 0) {
+    return { value: null, rawPart: raw };
   }
 
-  const matchNum = lastPart.match(/(\d[\d,]*)/);
-  if (matchNum) {
-    const clean = matchNum[1].replace(/,/g, '');
-    const num = parseFloat(clean);
-    if (!isNaN(num)) {
-      return { value: num, rawPart: lastPart };
-    }
+  const parsedEntries = parts.map(parseDvsaSingleEntry);
+  const withDates = parsedEntries.filter((e) => e.timestamp !== null && e.value !== null);
+  if (withDates.length > 0) {
+    withDates.sort((a, b) => b.timestamp - a.timestamp);
+    return { value: withDates[0].value, rawPart: withDates[0].raw };
   }
 
-  return { value: null, rawPart: lastPart };
+  const last = parsedEntries[parsedEntries.length - 1];
+  return { value: last.value, rawPart: last.raw };
 }
 
 function detectHeaders(rawSheet) {
@@ -295,4 +338,35 @@ Glass Trade Price
     flagged10k.map((r) => r['reg no']),
     ['LB70 HNX', 'RF69 EGX', 'BD69 WJM', 'YM19 OOJ', 'BH19 AYX']
   );
+
+  // 6. Verify downloadable export format contains exact 4 columns
+  const exportPayload = flagged10k.map((r) => ({
+    'reg no': r['reg no'],
+    'milage': r['milage'],
+    'dvsaa': r['dvsaa'],
+    'd/f': r['d/f'],
+  }));
+  assert.equal(exportPayload.length, 5);
+  assert.deepEqual(Object.keys(exportPayload[0]), ['reg no', 'milage', 'dvsaa', 'd/f']);
+  assert.equal(exportPayload[0]['d/f'], 'FLAG');
 });
+
+test('Chronological and reverse chronological DVSA date stamps both identify the latest reading', () => {
+  // Ascending
+  const rAsc = parseLastDvsa('51k (21/10/2022), 62k (18/10/2023), 106k (03/10/2025)');
+  assert.equal(rAsc.value, 106000);
+
+  // Descending (newest first)
+  const rDesc = parseLastDvsa('106k (03/10/2025), 62k (18/10/2023), 51k (21/10/2022)');
+  assert.equal(rDesc.value, 106000);
+
+  // ISO dates (YYYY-MM-DD)
+  const rIso = parseLastDvsa('40k (2022-01-01), 80k (2024-05-20)');
+  assert.equal(rIso.value, 80000);
+
+  // Mileage with k multiplier
+  assert.equal(parseMileage('85k'), 85000);
+  assert.equal(parseMileage('85.5k'), 85500);
+  assert.equal(parseMileage(' 120,672 '), 120672);
+});
+

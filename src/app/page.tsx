@@ -180,7 +180,11 @@ export default function Home() {
 
             <ExportBar records={records} flaggedCount={stats.flagged} />
 
-            <AuditTable records={records} threshold={threshold} />
+            <AuditTable
+              records={records}
+              threshold={threshold}
+              onThresholdChange={setThreshold}
+            />
           </div>
         )}
       </main>

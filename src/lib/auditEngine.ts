@@ -4,10 +4,72 @@ export function parseMileage(val: any): number | null {
   if (val === null || val === undefined) return null;
   const str = String(val).trim();
   if (!str) return null;
+
+  // Check if string is formatted with k multiplier e.g. '85k' or '85.5k'
+  const matchK = str.match(/^(\d+(?:\.\d+)?)\s*k$/i);
+  if (matchK) {
+    const base = parseFloat(matchK[1]);
+    return isNaN(base) ? null : Math.round(base * 1000);
+  }
+
   const clean = str.replace(/[^\d.]/g, '');
   if (!clean) return null;
   const num = parseFloat(clean);
   return isNaN(num) ? null : num;
+}
+
+interface ParsedDvsaEntry {
+  value: number | null;
+  timestamp: number | null;
+  raw: string;
+}
+
+function parseDvsaSingleEntry(entryStr: string): ParsedDvsaEntry {
+  const trimmed = entryStr.trim();
+  let value: number | null = null;
+
+  // Match formats like '57k (09/06/2026)', '102.5k', '57 k'
+  const matchK = trimmed.match(/(\d+(?:\.\d+)?)\s*k/i);
+  if (matchK) {
+    const base = parseFloat(matchK[1]);
+    if (!isNaN(base)) {
+      value = Math.round(base * 1000);
+    }
+  } else {
+    // Match full integer numbers like '118,505' or '42,000'
+    const matchNum = trimmed.match(/(\d[\d,]*)/);
+    if (matchNum) {
+      const clean = matchNum[1].replace(/,/g, '');
+      const num = parseFloat(clean);
+      if (!isNaN(num)) {
+        value = num;
+      }
+    }
+  }
+
+  // Parse date stamps like (DD/MM/YYYY), (DD-MM-YYYY), (DD.MM.YYYY), (YYYY-MM-DD)
+  let timestamp: number | null = null;
+  const matchDate = trimmed.match(/\((\d{1,4})[\/\.-](\d{1,2})[\/\.-](\d{1,4})\)/);
+  if (matchDate) {
+    const p1 = parseInt(matchDate[1], 10);
+    const p2 = parseInt(matchDate[2], 10);
+    const p3 = parseInt(matchDate[3], 10);
+
+    if (p1 > 1000) {
+      // YYYY-MM-DD
+      timestamp = new Date(p1, p2 - 1, p3).getTime();
+    } else {
+      // DD/MM/YYYY or DD/MM/YY
+      let y = p3;
+      if (y < 100) y += y > 50 ? 1900 : 2000;
+      timestamp = new Date(y, p2 - 1, p1).getTime();
+    }
+    if (isNaN(timestamp)) {
+      timestamp = null;
+    }
+  }
+
+  return { value, timestamp, raw: trimmed };
 }
 
 export function parseLastDvsa(str: any): { value: number | null; rawPart: string } {
@@ -36,28 +98,22 @@ export function parseLastDvsa(str: any): { value: number | null; rawPart: string
   }
 
   parts = parts.filter(Boolean);
-  const lastPart = parts.length > 0 ? parts[parts.length - 1] : raw;
-
-  // Match formats like '57k (09/06/2026)', '102.5k', '57 k'
-  const matchK = lastPart.match(/(\d+(?:\.\d+)?)\s*k/i);
-  if (matchK) {
-    const base = parseFloat(matchK[1]);
-    if (!isNaN(base)) {
-      return { value: Math.round(base * 1000), rawPart: lastPart };
-    }
+  if (parts.length === 0) {
+    return { value: null, rawPart: raw };
   }
 
-  // Match full integer numbers like '118,505' or '42,000'
-  const matchNum = lastPart.match(/(\d[\d,]*)/);
-  if (matchNum) {
-    const clean = matchNum[1].replace(/,/g, '');
-    const num = parseFloat(clean);
-    if (!isNaN(num)) {
-      return { value: num, rawPart: lastPart };
-    }
+  const parsedEntries = parts.map(parseDvsaSingleEntry);
+
+  // If entries contain valid date stamps, identify the chronologically newest record
+  const withDates = parsedEntries.filter((e) => e.timestamp !== null && e.value !== null);
+  if (withDates.length > 0) {
+    withDates.sort((a, b) => (b.timestamp as number) - (a.timestamp as number));
+    return { value: withDates[0].value, rawPart: withDates[0].raw };
   }
 
-  return { value: null, rawPart: lastPart };
+  // If no dates, choose the last recorded entry in the string sequence
+  const last = parsedEntries[parsedEntries.length - 1];
+  return { value: last.value, rawPart: last.raw };
 }
 
 export function auditRecords(
