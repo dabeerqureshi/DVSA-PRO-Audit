@@ -43,7 +43,7 @@ export const KpiStats: React.FC<KpiStatsProps> = ({ stats, threshold }) => {
             {stats.flagged.toLocaleString()}
           </span>
           <span className="text-xs text-rose-500 font-medium">
-            &gt; {threshold.toLocaleString()} mi
+            &ge; {threshold.toLocaleString()} mi
           </span>
         </div>
       </div>

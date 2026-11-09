@@ -3,13 +3,12 @@
 import React, { useRef, useState } from 'react';
 import {
   UploadCloud,
-  FileSpreadsheet,
-  AlertCircle,
   RefreshCw,
   Clipboard,
   Sparkles,
   X,
   FileText,
+  AlertCircle,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { SAMPLE_AUCTION_DATA } from '@/lib/sampleData';
@@ -75,14 +74,14 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
     setParseError(null);
     const trimmed = text.trim();
     if (!trimmed) {
-      setParseError('Please paste valid tabular or spreadsheet data.');
+      setParseError('Please paste valid tabular data.');
       return;
     }
 
     try {
       const workbook = XLSX.read(trimmed, { type: 'string' });
       if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
-        throw new Error('Could not parse any sheets from text data.');
+        throw new Error('Could not parse sheet data from pasted text.');
       }
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
@@ -93,7 +92,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
       }) as any[][];
 
       if (!rawRows || rawRows.length === 0) {
-        throw new Error('The spreadsheet content appears to be empty.');
+        throw new Error('The pasted content is empty.');
       }
 
       onFileParsed({
@@ -106,12 +105,12 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
       setPastedText('');
     } catch (err: any) {
       console.error(err);
-      setParseError(err.message || 'Failed to parse tabular data. Please verify column formatting.');
+      setParseError(err.message || 'Failed to parse tabular data.');
     }
   };
 
   const handleLoadSample = () => {
-    processTextData(SAMPLE_AUCTION_DATA, 'bca_sample_auction_vehicles.tsv');
+    processTextData(SAMPLE_AUCTION_DATA, 'sample_auction_data.tsv');
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -145,7 +144,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`relative border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center cursor-pointer transition-all duration-200 group ${
+        className={`relative border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all duration-200 group ${
           isDragging
             ? 'border-indigo-500 bg-indigo-50/50 scale-[1.005]'
             : 'border-slate-300 hover:border-indigo-400 bg-white hover:bg-slate-50/50'
@@ -159,111 +158,86 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
           className="hidden"
         />
 
-        <div className="flex flex-col items-center justify-center space-y-3">
+        <div className="flex flex-col items-center justify-center space-y-2.5">
           <div
-            className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-transform duration-200 group-hover:scale-110 ${
+            className={`w-12 h-12 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 ${
               isDragging
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                ? 'bg-indigo-600 text-white shadow-md'
                 : 'bg-indigo-50 text-indigo-600 border border-indigo-100'
             }`}
           >
             {isLoading ? (
-              <RefreshCw className="w-7 h-7 animate-spin" />
+              <RefreshCw className="w-6 h-6 animate-spin" />
             ) : (
-              <UploadCloud className="w-7 h-7" />
+              <UploadCloud className="w-6 h-6" />
             )}
           </div>
 
           <div>
-            <p className="text-base font-semibold text-slate-800">
+            <p className="text-sm font-semibold text-slate-800">
               {currentFileName ? (
-                <span className="text-indigo-600 font-bold">Active File: {currentFileName}</span>
+                <span className="text-indigo-600 font-bold">{currentFileName}</span>
               ) : (
-                'Drop your auction spreadsheet here, or browse'
+                'Upload spreadsheet (.xlsx, .xls, .csv)'
               )}
             </p>
-            <p className="text-xs text-slate-500 mt-1">
-              Supports BCA &amp; dealer reports in Excel (.xlsx, .xls) and CSV format
-            </p>
-          </div>
-
-          <div className="inline-flex items-center space-x-2 text-xs text-slate-400 bg-slate-100 px-3 py-1 rounded-full">
-            <FileSpreadsheet className="w-3.5 h-3.5 text-slate-500" />
-            <span>Auto-detects Column F (Reg), Column Q (Mileage), Column X (DVSA)</span>
           </div>
         </div>
       </div>
 
-      {/* Quick Ingestion Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
-        <div className="flex items-center space-x-2">
-          <button
-            type="button"
-            onClick={handleLoadSample}
-            className="inline-flex items-center space-x-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200/80 transition shadow-sm"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Load Sample Auction Data (10 Vehicles)</span>
-          </button>
+      <div className="flex items-center space-x-2">
+        <button
+          type="button"
+          onClick={handleLoadSample}
+          className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200/80 transition shadow-xs"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+          <span>Load Sample (10 Vehicles)</span>
+        </button>
 
-          <button
-            type="button"
-            onClick={() => setIsPasteModalOpen(true)}
-            className="inline-flex items-center space-x-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 transition shadow-sm"
-          >
-            <Clipboard className="w-3.5 h-3.5 text-slate-500" />
-            <span>Paste Spreadsheet / TSV Data</span>
-          </button>
-        </div>
-
-        <span className="text-[11px] text-slate-400">
-          Client-side parsing &bull; Sub-headers &amp; pricing rows auto-skipped
-        </span>
+        <button
+          type="button"
+          onClick={() => setIsPasteModalOpen(true)}
+          className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 transition shadow-xs"
+        >
+          <Clipboard className="w-3.5 h-3.5 text-slate-500" />
+          <span>Paste Data</span>
+        </button>
       </div>
 
       {parseError && (
-        <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start space-x-3 text-rose-800 text-xs">
+        <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 flex items-start space-x-2.5 text-rose-800 text-xs">
           <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-          <div>
-            <p className="font-semibold">Unable to process data</p>
-            <p className="mt-0.5 text-rose-700">{parseError}</p>
-          </div>
+          <p>{parseError}</p>
         </div>
       )}
 
       {/* Paste Modal */}
       {isPasteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
-                  <FileText className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-800">
-                    Paste Spreadsheet or Tabular Data
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Paste copied rows directly from Excel, BCA catalog, or Google Sheets
-                  </p>
-                </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-5 shadow-2xl border border-slate-200 space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <div className="flex items-center space-x-2">
+                <FileText className="w-4 h-4 text-indigo-600" />
+                <h3 className="text-sm font-bold text-slate-800">
+                  Paste Spreadsheet Data
+                </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsPasteModalOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <textarea
-              rows={10}
+              rows={9}
               value={pastedText}
               onChange={(e) => setPastedText(e.target.value)}
-              placeholder="Paste tab-separated or comma-separated auction rows here..."
-              className="w-full font-mono text-xs p-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50/50"
+              placeholder="Paste rows copied from Excel or spreadsheet..."
+              className="w-full font-mono text-xs p-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50"
             />
 
             <div className="flex items-center justify-between pt-1">
@@ -272,14 +246,14 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
                 onClick={() => setPastedText(SAMPLE_AUCTION_DATA)}
                 className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold"
               >
-                Insert Sample Data
+                Insert Sample
               </button>
 
               <div className="flex items-center space-x-2">
                 <button
                   type="button"
                   onClick={() => setIsPasteModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                  className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
                 >
                   Cancel
                 </button>
@@ -287,9 +261,9 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
                   type="button"
                   onClick={() => processTextData(pastedText, 'pasted_auction_input.tsv')}
                   disabled={!pastedText.trim()}
-                  className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-sm transition"
+                  className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-xs transition"
                 >
-                  Audit Pasted Data
+                  Audit Data
                 </button>
               </div>
             </div>

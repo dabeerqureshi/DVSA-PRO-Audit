@@ -2,8 +2,9 @@ export interface AuditedRecord {
   'reg no': string;
   'milage': string | number;
   'dvsaa': string;
-  'd/f': 'FLAG' | '';
+  'd/f': number | string; // Difference between auction mileage and last DVSA reading
   // Internal calculation helpers for UI display & sorting
+  _isFlagged: boolean;
   _parsedMileage: number | null;
   _parsedDvsa: number | null;
   _diff: number | null;
@@ -25,4 +26,4 @@ export interface AuditStats {
   maxDiff: number;
 }
 
-export type FilterMode = 'ALL' | 'FLAGGED' | 'PASSED';
+export type FilterMode = 'FLAGGED' | 'ALL';

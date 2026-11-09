@@ -13,26 +13,27 @@ The export pipeline generates files (.xlsx and .csv) formatted with the exact 4 
 | **`reg no`** | String | Vehicle registration number | `EP21 GZU` |
 | **`milage`** | String / Number | Listed auction odometer reading | `91,094` |
 | **`dvsaa`** | String | Complete DVSA MOT history string | `35k (21/06/2024), 52k (08/07/2025), 57k (09/06/2026)` |
-| **`d/f`** | String | Discrepancy flag (`FLAG` or empty) | `FLAG` |
+| **`d/f`** | Number / String | Calculated discrepancy difference ($\Delta$) | `34,094` |
 
 ---
 
 ## Auditing Algorithm & Business Rules
 
 1. **Header Offset & Column Detection**:
-   - Automatically scans rows 1–4 to skip auction pricing sub-headers and locate the real table headers.
+   - Automatically scans rows 1–12 to skip auction pricing sub-headers and locate the real table headers.
    - Detects `Registration Number` (Col F), `Mileage` (Col Q), and `DVSA Mileage` (Col X).
+   - Protects `Mileage` from being confused with `Last Service Mileage`.
    - Includes manual column mapping dropdowns for custom file layouts.
 
 2. **DVSA MOT History Extraction**:
    - Parses multi-entry historical strings (e.g. `35k (21/06/2024), 52k (08/07/2025), 57k (09/06/2026)`).
-   - Isolates the latest recorded entry (`57k (09/06/2026)`).
+   - Isolates the latest recorded entry by date stamp (`57k (09/06/2026)`).
    - Evaluates `k` multipliers (e.g., `57k` $\rightarrow$ $57,000$) and full numbers (`118,505` $\rightarrow$ $118,505$).
 
 3. **Discrepancy Evaluation**:
    $$\Delta = |\text{milage} - \text{last\_dvsa}|$$
-   $$\text{d/f} = \begin{cases} \text{"FLAG"} & \text{if } \Delta > 30,000 \\ \text{""} & \text{otherwise} \end{cases}$$
-   - Threshold is user-configurable (10k, 20k, 30k default, 50k, or custom numeric).
+   $$\text{d/f} = \Delta \quad \text{for flagged records where } \Delta \ge 20,000$$
+   - Production default threshold is **20,000 miles** (user-configurable to 10k, 20k, 30k, 50k, or custom numeric).
 
 ---
 

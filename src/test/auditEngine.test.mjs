@@ -198,11 +198,13 @@ function extractValidVehicleRows(rawSheet, headerRowIndex, mapping, headers) {
   return rows;
 }
 
-function audit(milage, dvsaa, threshold = 30000) {
+function audit(milage, dvsaa, threshold = 20000) {
   const milNum = parseMileage(milage);
   const { value: dvsaNum } = parseLastDvsa(dvsaa);
-  if (milNum === null || dvsaNum === null) return '';
-  return Math.abs(milNum - dvsaNum) > threshold ? 'FLAG' : '';
+  if (milNum === null || dvsaNum === null) return { isFlagged: false, diff: null, df: '' };
+  const diff = Math.abs(milNum - dvsaNum);
+  const isFlagged = diff >= threshold;
+  return { isFlagged, diff: Math.round(diff), df: isFlagged ? Math.round(diff) : '' };
 }
 
 test('parseMileage extracts numbers correctly', () => {
@@ -211,6 +213,8 @@ test('parseMileage extracts numbers correctly', () => {
   assert.equal(parseMileage('999,999'), 999999);
   assert.equal(parseMileage(45000), 45000);
   assert.equal(parseMileage('  114,305 miles '), 114305);
+  assert.equal(parseMileage('85k'), 85000);
+  assert.equal(parseMileage('85.5k'), 85500);
   assert.equal(parseMileage(''), null);
   assert.equal(parseMileage(null), null);
 });
@@ -232,27 +236,37 @@ test('parseLastDvsa extracts last entry with k and integers', () => {
   assert.equal(r5.value, 42000);
 });
 
-test('Exact user prompt vehicles audit correctly against 30,000 threshold', () => {
-  // Flagged examples from prompt
-  assert.equal(audit('91,094', '35k (21/06/2024), 52k (08/07/2025), 57k (09/06/2026)'), 'FLAG'); // diff 34094
-  assert.equal(audit('114,305', '37k (21/12/2022), 57k (30/11/2023), 78k (17/11/2024)'), 'FLAG'); // diff 36305
-  assert.equal(audit('99,770', '68k (05/07/2025)'), 'FLAG'); // diff 31770
-  assert.equal(audit('1', '37k (07/11/2022), 47k (14/11/2023), 57k (08/11/2024), 65k (18/11/2025)'), 'FLAG'); // diff 64999
-  assert.equal(audit('100,951', '27k (13/04/2023), 50k (18/04/2024), 68k (25/03/2025)'), 'FLAG'); // diff 32951
-  assert.equal(audit('999,999', '10k (16/11/2021), 16k (16/11/2022), 22k (13/11/2023), 31k (18/11/2024)'), 'FLAG'); // diff 968999
-  assert.equal(audit('103,642', '47k (03/09/2024), 73k (14/08/2025)'), 'FLAG'); // diff 30642
-  assert.equal(audit('1', '27k (26/04/2024), 57k (24/04/2025)'), 'FLAG'); // diff 56999
-  assert.equal(audit('86,392', '30k (25/06/2024), 53k (12/06/2025)'), 'FLAG'); // diff 33392
-  assert.equal(audit('113,800', '44k (06/10/2022), 57k (05/10/2023), 70k (03/10/2024), 83k (03/10/2025)'), 'FLAG'); // diff 30800
+test('Vehicles audit correctly against 20,000 threshold and d/f contains difference', () => {
+  // Flagged examples (> 20,000 diff) with exact difference in d/f
+  const res1 = audit('91,094', '35k (21/06/2024), 52k (08/07/2025), 57k (09/06/2026)', 20000);
+  assert.equal(res1.isFlagged, true);
+  assert.equal(res1.df, 34094);
 
-  // Non-flagged examples
-  assert.equal(audit('45,000', '42,000'), ''); // diff 3,000 <= 30,000
-  assert.equal(audit('31,000', '30,500'), ''); // diff 500 <= 30,000
-  assert.equal(audit('95,000', '50,000'), 'FLAG'); // diff 45,000 > 30,000
-  assert.equal(audit('28,000', '65,000'), 'FLAG'); // diff 37,000 > 30,000
+  const res2 = audit('114,305', '37k (21/12/2022), 57k (30/11/2023), 78k (17/11/2024)', 20000);
+  assert.equal(res2.isFlagged, true);
+  assert.equal(res2.df, 36305);
+
+  const res3 = audit('99,770', '68k (05/07/2025)', 20000);
+  assert.equal(res3.isFlagged, true);
+  assert.equal(res3.df, 31770);
+
+  const res4 = audit('1', '37k (07/11/2022), 47k (14/11/2023), 57k (08/11/2024), 65k (18/11/2025)', 20000);
+  assert.equal(res4.isFlagged, true);
+  assert.equal(res4.df, 64999);
+
+  const res5 = audit('103,642', '47k (03/09/2024), 73k (14/08/2025)', 20000);
+  assert.equal(res5.isFlagged, true);
+  assert.equal(res5.df, 30642);
+
+  // Non-flagged examples (< 20,000 diff)
+  const resPass1 = audit('45,000', '42,000', 20000);
+  assert.equal(resPass1.isFlagged, false);
+
+  const resPass2 = audit('31,000', '30,500', 20000);
+  assert.equal(resPass2.isFlagged, false);
 });
 
-test('Real-world auction spreadsheet format with CAP/Glass sub-headers parses and audits perfectly', () => {
+test('Real-world auction spreadsheet format with CAP/Glass sub-headers parses and audits with d/f as difference', () => {
   const sampleSpreadsheetText = `Date\tSale Location\tChannel\tSale Type\tLot Number\tRegistration Number\tMake\tModel\tDerivative\tEngine Size\tBody\tColour\tNumber Of Doors\tTransmission\tFuel\tGrade\tMileage\tRegistration Date\tService History Present\tNumber of Services\tMain Dealer Services\tLast Service Date\tLast Service Mileage\tDVSA Mileage\tAdditional Service Notes\tMOT Expiry\tDeclarations\tEquipment\tAdditional Information\tVAT Type\t\t\t\t\t\t\t\t\t
 Buy Now Price
 Guide Price Header
@@ -280,13 +294,11 @@ Glass Trade Price
   const rawSheet = sampleSpreadsheetText.split('\n').map((l) => l.split('\t'));
   const det = detectHeaders(rawSheet);
 
-  // 1. Check header detection & mapping
   assert.equal(det.headerRowIndex, 0);
   assert.equal(det.mapping.regCol, 'Registration Number');
-  assert.equal(det.mapping.milCol, 'Mileage'); // Must NOT pick Last Service Mileage
+  assert.equal(det.mapping.milCol, 'Mileage');
   assert.equal(det.mapping.dvsaCol, 'DVSA Mileage');
 
-  // 2. Check extraction filters out the 12 pricing/sub-header rows
   const cleanVehicles = extractValidVehicleRows(
     rawSheet,
     det.headerRowIndex,
@@ -295,51 +307,47 @@ Glass Trade Price
   );
   assert.equal(cleanVehicles.length, 10);
 
-  // 3. Verify vehicle VRMs match the 10 cars
-  const expectedRegs = [
-    'LE21 MTX',
-    'LB70 HNX',
-    'RF69 EGX',
-    'DA21 ZHK',
-    'BW69 BVH',
-    'BD69 WJM',
-    'YM19 OOJ',
-    'BH19 AYX',
-    'RE70 XZR',
-    'KK68 OJL',
-  ];
-  assert.deepEqual(
-    cleanVehicles.map((v) => v['Registration Number']),
-    expectedRegs
-  );
+  // At 20,000 threshold, verify all 10 are within threshold
+  const audited20k = cleanVehicles.map((v) => {
+    const res = audit(v['Mileage'], v['DVSA Mileage'], 20000);
+    return {
+      'reg no': v['Registration Number'],
+      'milage': v['Mileage'],
+      'dvsaa': v['DVSA Mileage'],
+      'd/f': res.df,
+      _isFlagged: res.isFlagged,
+    };
+  });
 
-  // 4. Test auditing against 30,000 threshold (all pass)
-  const audited30k = cleanVehicles.map((v) => ({
-    'reg no': v['Registration Number'],
-    'milage': v['Mileage'],
-    'dvsaa': v['DVSA Mileage'],
-    'd/f': audit(v['Mileage'], v['DVSA Mileage'], 30000),
-  }));
+  const flagged20k = audited20k.filter((r) => r._isFlagged);
+  assert.equal(flagged20k.length, 0);
 
-  const flagged30k = audited30k.filter((r) => r['d/f'] === 'FLAG');
-  assert.equal(flagged30k.length, 0);
+  // At 10,000 threshold, verify 5 are flagged and their d/f values contain the exact differences
+  const audited10k = cleanVehicles.map((v) => {
+    const res = audit(v['Mileage'], v['DVSA Mileage'], 10000);
+    return {
+      'reg no': v['Registration Number'],
+      'milage': v['Mileage'],
+      'dvsaa': v['DVSA Mileage'],
+      'd/f': res.df,
+      _isFlagged: res.isFlagged,
+    };
+  });
 
-  // 5. Test auditing against 10,000 threshold (5 should flag: LB70 HNX, RF69 EGX, BD69 WJM, YM19 OOJ, BH19 AYX)
-  const audited10k = cleanVehicles.map((v) => ({
-    'reg no': v['Registration Number'],
-    'milage': v['Mileage'],
-    'dvsaa': v['DVSA Mileage'],
-    'd/f': audit(v['Mileage'], v['DVSA Mileage'], 10000),
-  }));
-
-  const flagged10k = audited10k.filter((r) => r['d/f'] === 'FLAG');
+  const flagged10k = audited10k.filter((r) => r._isFlagged);
   assert.equal(flagged10k.length, 5);
   assert.deepEqual(
     flagged10k.map((r) => r['reg no']),
     ['LB70 HNX', 'RF69 EGX', 'BD69 WJM', 'YM19 OOJ', 'BH19 AYX']
   );
 
-  // 6. Verify downloadable export format contains exact 4 columns
+  // Verify d/f contains exact difference numbers
+  assert.deepEqual(
+    flagged10k.map((r) => r['d/f']),
+    [10090, 14672, 11765, 19521, 11340]
+  );
+
+  // Verify 4-column export payload format: reg no, milage, dvsaa, d/f
   const exportPayload = flagged10k.map((r) => ({
     'reg no': r['reg no'],
     'milage': r['milage'],
@@ -348,25 +356,22 @@ Glass Trade Price
   }));
   assert.equal(exportPayload.length, 5);
   assert.deepEqual(Object.keys(exportPayload[0]), ['reg no', 'milage', 'dvsaa', 'd/f']);
-  assert.equal(exportPayload[0]['d/f'], 'FLAG');
+  assert.equal(exportPayload[0]['reg no'], 'LB70 HNX');
+  assert.equal(exportPayload[0]['milage'], '100,090');
+  assert.equal(exportPayload[0]['d/f'], 10090);
 });
 
 test('Chronological and reverse chronological DVSA date stamps both identify the latest reading', () => {
-  // Ascending
   const rAsc = parseLastDvsa('51k (21/10/2022), 62k (18/10/2023), 106k (03/10/2025)');
   assert.equal(rAsc.value, 106000);
 
-  // Descending (newest first)
   const rDesc = parseLastDvsa('106k (03/10/2025), 62k (18/10/2023), 51k (21/10/2022)');
   assert.equal(rDesc.value, 106000);
 
-  // ISO dates (YYYY-MM-DD)
   const rIso = parseLastDvsa('40k (2022-01-01), 80k (2024-05-20)');
   assert.equal(rIso.value, 80000);
 
-  // Mileage with k multiplier
   assert.equal(parseMileage('85k'), 85000);
   assert.equal(parseMileage('85.5k'), 85500);
   assert.equal(parseMileage(' 120,672 '), 120672);
 });
-

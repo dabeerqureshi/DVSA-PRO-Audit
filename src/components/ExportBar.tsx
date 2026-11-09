@@ -15,7 +15,7 @@ export const ExportBar: React.FC<ExportBarProps> = ({ records, flaggedCount }) =
 
   const getTargetRecords = () => {
     if (exportScope === 'FLAGGED') {
-      return records.filter((r) => r['d/f'] === 'FLAG');
+      return records.filter((r) => r._isFlagged);
     }
     return records;
   };

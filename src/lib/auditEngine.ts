@@ -119,7 +119,7 @@ export function parseLastDvsa(str: any): { value: number | null; rawPart: string
 export function auditRecords(
   rows: Array<Record<string, any>>,
   mapping: ColumnMapping,
-  threshold: number = 30000
+  threshold: number = 20000
 ): AuditedRecord[] {
   return rows.map((row, idx) => {
     const reg = String(row[mapping.regCol] ?? '').trim();
@@ -129,21 +129,24 @@ export function auditRecords(
     const milNum = parseMileage(rawMil);
     const { value: dvsaNum, rawPart } = parseLastDvsa(rawDvsa);
 
-    let flag: 'FLAG' | '' = '';
+    let isFlagged = false;
     let diff: number | null = null;
+    let dfVal: number | string = '';
 
     if (milNum !== null && dvsaNum !== null) {
       diff = Math.abs(milNum - dvsaNum);
-      if (diff > threshold) {
-        flag = 'FLAG';
+      if (diff >= threshold) {
+        isFlagged = true;
       }
+      dfVal = Math.round(diff);
     }
 
     return {
       'reg no': reg,
       'milage': rawMil,
       'dvsaa': rawDvsa,
-      'd/f': flag,
+      'd/f': dfVal,
+      _isFlagged: isFlagged,
       _parsedMileage: milNum,
       _parsedDvsa: dvsaNum,
       _diff: diff,
@@ -163,7 +166,7 @@ export function computeStats(records: AuditedRecord[]): AuditStats {
   let maxDiff = 0;
 
   for (const r of records) {
-    if (r['d/f'] === 'FLAG') {
+    if (r._isFlagged) {
       flagged++;
     }
     if (r._diff !== null && r._diff > maxDiff) {

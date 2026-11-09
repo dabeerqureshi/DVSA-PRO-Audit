@@ -4,7 +4,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'DVSA Mileage Discrepancy Auditing System',
   description:
-    'Automated vehicle auction odometer vs. DVSA MOT mileage discrepancy verification tool. Flags records exceeding 30,000 miles.',
+    'Automated vehicle auction odometer vs. DVSA MOT mileage discrepancy verification tool. Flags records exceeding 20,000 miles.',
 };
 
 export default function RootLayout({
