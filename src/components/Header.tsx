@@ -1,12 +1,12 @@
 import React from 'react';
-import { ShieldCheck, FileSpreadsheet, Sparkles } from 'lucide-react';
+import { ShieldCheck, FileSpreadsheet } from 'lucide-react';
 
 interface HeaderProps {
-  onLoadSample: () => void;
   hasData: boolean;
+  fileName?: string;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onLoadSample, hasData }) => {
+export const Header: React.FC<HeaderProps> = ({ hasData, fileName }) => {
   return (
     <header className="border-b border-slate-200 bg-white/90 backdrop-blur sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -30,15 +30,12 @@ export const Header: React.FC<HeaderProps> = ({ onLoadSample, hasData }) => {
         </div>
 
         <div className="flex items-center space-x-3">
-          <button
-            type="button"
-            onClick={onLoadSample}
-            className="inline-flex items-center px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 transition shadow-sm active:scale-95"
-            title="Load authentic BCA sample spreadsheet"
-          >
-            <Sparkles className="w-4 h-4 mr-1.5 text-indigo-600" />
-            <span>Load Sample Data</span>
-          </button>
+          {hasData && fileName && (
+            <div className="inline-flex items-center px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200">
+              <FileSpreadsheet className="w-3.5 h-3.5 mr-1.5 text-indigo-600" />
+              <span className="max-w-[200px] truncate">{fileName}</span>
+            </div>
+          )}
         </div>
       </div>
     </header>

@@ -171,6 +171,8 @@ export function detectHeaders(rawSheet: any[][]): {
       dvsaCol = col;
     } else if (
       !milCol &&
+      !lower.includes('service') &&
+      !lower.includes('warranty') &&
       (lower.includes('mileage') || lower.includes('odometer') || lower === 'milage')
     ) {
       milCol = col;
@@ -192,4 +194,48 @@ export function detectHeaders(rawSheet: any[][]): {
     headers,
     mapping: { regCol, milCol, dvsaCol },
   };
+}
+
+export function extractValidVehicleRows(
+  rawSheet: any[][],
+  headerRowIndex: number,
+  mapping: ColumnMapping,
+  headers: string[]
+): Array<Record<string, any>> {
+  const rows: Array<Record<string, any>> = [];
+  const regColIdx = headers.indexOf(mapping.regCol);
+
+  for (let i = headerRowIndex + 1; i < rawSheet.length; i++) {
+    const rawRow = rawSheet[i];
+    if (!Array.isArray(rawRow) || rawRow.length === 0) continue;
+
+    const regVal =
+      regColIdx !== -1 && rawRow[regColIdx] !== undefined
+        ? String(rawRow[regColIdx]).trim()
+        : '';
+
+    // Ignore rows where registration is missing or matches subheader labels
+    if (!regVal) continue;
+    const regLower = regVal.toLowerCase();
+    if (
+      regLower.includes('registration') ||
+      regLower.includes('guide price') ||
+      regLower.includes('cap price') ||
+      regLower.includes('glass price') ||
+      regLower.includes('buy now') ||
+      regLower.includes('cap new') ||
+      regLower.includes('cap clean')
+    ) {
+      continue;
+    }
+
+    const rowObj: Record<string, any> = {};
+    headers.forEach((h, colIdx) => {
+      rowObj[h] = rawRow[colIdx] !== undefined ? rawRow[colIdx] : '';
+    });
+
+    rows.push(rowObj);
+  }
+
+  return rows;
 }

@@ -38,9 +38,10 @@ The export pipeline generates files (.xlsx and .csv) formatted with the exact 4 
 
 ## Features
 
-- **Drag-and-Drop Dropzone**: Ingests `.xlsx`, `.xls`, and `.csv` files.
+- **Drag-and-Drop Dropzone & Paste Modal**: Ingests `.xlsx`, `.xls`, `.csv` files, and direct tab-separated clipboard paste.
+- **Sub-header Auto-Filtration**: Automatically skips valuation rows (CAP, Glass's Guide, Buy Now prices) and isolates real vehicle records.
+- **1-Click Sample Auction Data**: Preloaded with authentic BCA / dealer test batches (10 real vehicle records).
 - **100% In-Browser Execution**: Zero server uploads, zero payload size limits, zero server latency, and 100% data privacy.
-- **1-Click Sample Data**: Preloaded with authentic BCA test batches (including placeholder anomalies like `1` or `999,999`).
 - **Interactive KPI Cards**: Scanned records, Flagged count, Passed count, Pass Rate %, and Maximum Discrepancy.
 - **Search & Filtering**: Search by vehicle registration, filter by All / Flagged / Passed tabs, and paginated display.
 - **Export Engine**: 1-click download of `.xlsx` with styled column widths and `.csv` formatted files.

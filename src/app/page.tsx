@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Header } from '@/components/Header';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { KpiStats } from '@/components/KpiStats';
@@ -13,13 +13,14 @@ import {
   auditRecords,
   computeStats,
   detectHeaders,
+  extractValidVehicleRows,
 } from '@/lib/auditEngine';
-import { SAMPLE_DATA } from '@/lib/sampleData';
-import { ShieldCheck, Info, CheckCircle2 } from 'lucide-react';
+import { FileSpreadsheet, CheckCircle2, ArrowRight } from 'lucide-react';
 
 export default function Home() {
   const [threshold, setThreshold] = useState<number>(30000);
   const [rawRows, setRawRows] = useState<any[][] | null>(null);
+  const [headerRowIndex, setHeaderRowIndex] = useState<number>(0);
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<ColumnMapping>({
     regCol: 'Registration Number',
@@ -58,28 +59,17 @@ export default function Home() {
       setRawRows(rawRows);
 
       const detection = detectHeaders(rawRows);
+      setHeaderRowIndex(detection.headerRowIndex);
       setHeaders(detection.headers);
       setMapping(detection.mapping);
 
-      // Extract rows following the detected header index
-      const rows: Array<Record<string, any>> = [];
-      for (let i = detection.headerRowIndex + 1; i < rawRows.length; i++) {
-        const rawRow = rawRows[i];
-        if (!Array.isArray(rawRow) || rawRow.length === 0) continue;
-
-        const rowObj: Record<string, any> = {};
-        detection.headers.forEach((h, colIdx) => {
-          rowObj[h] = rawRow[colIdx] !== undefined ? rawRow[colIdx] : '';
-        });
-
-        // Skip completely empty rows
-        const hasContent = Object.values(rowObj).some(
-          (v) => v !== '' && v !== null && v !== undefined
-        );
-        if (hasContent) {
-          rows.push(rowObj);
-        }
-      }
+      // Cleanly extract valid vehicle rows, skipping subheaders & empty registrations
+      const rows = extractValidVehicleRows(
+        rawRows,
+        detection.headerRowIndex,
+        detection.mapping,
+        detection.headers
+      );
 
       setDataRows(rows);
       setIsLoading(false);
@@ -87,28 +77,25 @@ export default function Home() {
     []
   );
 
-  // Load sample dataset
-  const handleLoadSample = useCallback(() => {
-    setIsLoading(true);
-    setFileName('BCA_Auction_Demo_Batch.xlsx');
-    setHeaders(['Registration Number', 'Mileage', 'DVSA Mileage', 'Make', 'Model', 'Grade']);
-    setMapping({
-      regCol: 'Registration Number',
-      milCol: 'Mileage',
-      dvsaCol: 'DVSA Mileage',
-    });
-    setDataRows(SAMPLE_DATA);
-    setIsLoading(false);
-  }, []);
-
-  // Preload sample data on initial mount for instant demo experience
-  useEffect(() => {
-    handleLoadSample();
-  }, [handleLoadSample]);
+  const handleMappingSave = useCallback(
+    (newMapping: ColumnMapping) => {
+      setMapping(newMapping);
+      if (rawRows && headers.length > 0) {
+        const rows = extractValidVehicleRows(
+          rawRows,
+          headerRowIndex,
+          newMapping,
+          headers
+        );
+        setDataRows(rows);
+      }
+    },
+    [rawRows, headerRowIndex, headers]
+  );
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
-      <Header onLoadSample={handleLoadSample} hasData={records.length > 0} />
+      <Header hasData={records.length > 0} fileName={fileName} />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Verification banner */}
@@ -123,16 +110,16 @@ export default function Home() {
               </span>
             </div>
             <h2 className="text-lg font-bold text-white">
-              Automated Mileage Verification &amp; DVSA MOT History Auditing
+              Vehicle Mileage Verification &amp; DVSA Discrepancy Auditing
             </h2>
             <p className="text-xs text-slate-300">
-              Drag-and-drop any BCA auction report. The system automatically identifies headers, parses the latest DVSA MOT reading, flags discrepancies exceeding {threshold.toLocaleString()} miles, and exports directly to <span className="font-mono text-indigo-300">reg no, milage, dvsaa, d/f</span>.
+              Upload your spreadsheet to extract Registration, Mileage, DVSA History, and flag differences &gt; {threshold.toLocaleString()} miles. Output schema: <span className="font-mono text-indigo-300">reg no, milage, dvsaa, d/f</span>.
             </p>
           </div>
 
           <div className="flex items-center space-x-2 text-xs text-emerald-400 font-semibold bg-emerald-950/60 border border-emerald-800/60 px-3.5 py-2 rounded-xl shrink-0">
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            <span>100% In-Browser &bull; Zero Server Latency</span>
+            <span>100% Client-Side Processing</span>
           </div>
         </div>
 
@@ -143,7 +130,43 @@ export default function Home() {
           currentFileName={fileName}
         />
 
-        {/* KPI Summary Cards */}
+        {/* Empty State when no file uploaded */}
+        {records.length === 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
+              <FileSpreadsheet className="w-6 h-6" />
+            </div>
+            <div className="max-w-md mx-auto space-y-1">
+              <h3 className="text-base font-bold text-slate-800">
+                No spreadsheet uploaded yet
+              </h3>
+              <p className="text-xs text-slate-500">
+                Upload your Excel (.xlsx, .xls) or CSV sheet above to instantly view the audited results, KPI summary, and download the flagged report.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 max-w-2xl mx-auto pt-2 text-left">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
+                <div className="font-semibold text-slate-700">1. reg no</div>
+                <div className="text-slate-400 text-[11px] mt-0.5">Registration Number</div>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
+                <div className="font-semibold text-slate-700">2. milage</div>
+                <div className="text-slate-400 text-[11px] mt-0.5">Listed Odometer</div>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
+                <div className="font-semibold text-slate-700">3. dvsaa</div>
+                <div className="text-slate-400 text-[11px] mt-0.5">DVSA MOT History</div>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
+                <div className="font-semibold text-rose-600">4. d/f</div>
+                <div className="text-slate-400 text-[11px] mt-0.5">&gt; 30,000 diff = FLAG</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Audited Results when file is uploaded */}
         {records.length > 0 && (
           <div className="space-y-6">
             <KpiStats stats={stats} threshold={threshold} />
@@ -168,12 +191,12 @@ export default function Home() {
         onClose={() => setIsMappingOpen(false)}
         headers={headers}
         initialMapping={mapping}
-        onSave={setMapping}
+        onSave={handleMappingSave}
       />
 
       <footer className="mt-auto border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-400">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>DVSA Vehicle Mileage Discrepancy Auditing System &bull; Production Build</span>
+          <span>DVSA Vehicle Mileage Discrepancy Auditing System &bull; Production</span>
           <span>Deployable to Vercel &bull; Next.js 14 &bull; SheetJS Engine</span>
         </div>
       </footer>
