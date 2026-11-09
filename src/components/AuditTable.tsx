@@ -48,9 +48,11 @@ export const AuditTable: React.FC<AuditTableProps> = ({
     const query = searchQuery.trim().toLowerCase();
     return flaggedRecords.filter((r) => {
       const regMatch = r['reg no'].toLowerCase().includes(query);
+      const makeMatch = (r['make'] || '').toLowerCase().includes(query);
+      const modelMatch = (r['model'] || '').toLowerCase().includes(query);
       const dvsaMatch = r['dvsaa'].toLowerCase().includes(query);
       const milMatch = String(r['milage']).toLowerCase().includes(query);
-      return regMatch || dvsaMatch || milMatch;
+      return regMatch || makeMatch || modelMatch || dvsaMatch || milMatch;
     });
   }, [flaggedRecords, searchQuery]);
 
@@ -72,9 +74,9 @@ export const AuditTable: React.FC<AuditTableProps> = ({
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
       {/* Table Toolbar */}
-      <div className="p-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
-        <div className="flex items-center space-x-2">
-          <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse" />
+      <div className="p-3 sm:p-3.5 border-b border-slate-100 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+          <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse shrink-0" />
           <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
             Flagged Records
           </h3>
@@ -87,40 +89,42 @@ export const AuditTable: React.FC<AuditTableProps> = ({
         </div>
 
         {/* Action Controls & Search */}
-        <div className="flex flex-wrap items-center gap-2">
-          {onOpenMapping && (
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full md:w-auto">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {onOpenMapping && (
+              <button
+                type="button"
+                onClick={onOpenMapping}
+                className="inline-flex items-center px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+                title="Edit column mapping"
+              >
+                <Settings2 className="w-3.5 h-3.5 mr-1 text-slate-500" />
+                <span className="hidden sm:inline">Columns</span>
+              </button>
+            )}
+
             <button
               type="button"
-              onClick={onOpenMapping}
-              className="inline-flex items-center px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
-              title="Edit column mapping"
+              onClick={handleDownloadExcel}
+              disabled={flaggedRecords.length === 0}
+              className="inline-flex items-center px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-xs disabled:opacity-40 disabled:pointer-events-none"
             >
-              <Settings2 className="w-3.5 h-3.5 mr-1 text-slate-500" />
-              <span>Columns</span>
+              <FileSpreadsheet className="w-3.5 h-3.5 mr-1" />
+              <span>.xlsx</span>
             </button>
-          )}
 
-          <button
-            type="button"
-            onClick={handleDownloadExcel}
-            disabled={flaggedRecords.length === 0}
-            className="inline-flex items-center px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-xs disabled:opacity-40 disabled:pointer-events-none"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 mr-1" />
-            <span>.xlsx</span>
-          </button>
+            <button
+              type="button"
+              onClick={handleDownloadCsv}
+              disabled={flaggedRecords.length === 0}
+              className="inline-flex items-center px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white transition disabled:opacity-40 disabled:pointer-events-none"
+            >
+              <FileText className="w-3.5 h-3.5 mr-1 text-slate-300" />
+              <span>.csv</span>
+            </button>
+          </div>
 
-          <button
-            type="button"
-            onClick={handleDownloadCsv}
-            disabled={flaggedRecords.length === 0}
-            className="inline-flex items-center px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white transition disabled:opacity-40 disabled:pointer-events-none"
-          >
-            <FileText className="w-3.5 h-3.5 mr-1 text-slate-300" />
-            <span>.csv</span>
-          </button>
-
-          <div className="relative sm:w-48">
+          <div className="relative flex-1 min-w-[130px] sm:w-48 sm:flex-none">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
@@ -140,7 +144,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
               setPageSize(Number(e.target.value));
               setCurrentPage(1);
             }}
-            className="text-xs font-semibold px-2 py-1.5 rounded-xl border border-slate-200 text-slate-700"
+            className="text-xs font-semibold px-2 py-1.5 rounded-xl border border-slate-200 text-slate-700 shrink-0"
           >
             <option value={25}>25</option>
             <option value={50}>50</option>
@@ -149,22 +153,24 @@ export const AuditTable: React.FC<AuditTableProps> = ({
         </div>
       </div>
 
-      {/* Main Table */}
+      {/* Main Table with horizontal scrolling on mobile */}
       <div className="overflow-x-auto max-h-[600px] divide-y divide-slate-100">
-        <table className="w-full text-left text-xs border-collapse">
-          <thead className="bg-slate-50/90 backdrop-blur sticky top-0 z-10 text-slate-600 uppercase tracking-wider font-bold border-b border-slate-200">
+        <table className="w-full min-w-[720px] sm:min-w-full text-left text-xs border-collapse">
+          <thead className="bg-slate-50/95 backdrop-blur sticky top-0 z-10 text-slate-600 uppercase tracking-wider font-bold border-b border-slate-200">
             <tr>
-              <th className="py-2.5 px-3.5 w-32">reg no</th>
-              <th className="py-2.5 px-3.5 w-28">milage</th>
-              <th className="py-2.5 px-3.5">dvsaa</th>
-              <th className="py-2.5 px-3.5 w-32 text-center">d/f</th>
+              <th className="py-2.5 px-3 sm:px-3.5 w-32 min-w-[110px]">reg no</th>
+              <th className="py-2.5 px-3 sm:px-3.5 w-28 min-w-[95px]">make</th>
+              <th className="py-2.5 px-3 sm:px-3.5 w-32 min-w-[110px]">model</th>
+              <th className="py-2.5 px-3 sm:px-3.5 w-24 min-w-[85px]">milage</th>
+              <th className="py-2.5 px-3 sm:px-3.5 min-w-[200px]">dvsaa</th>
+              <th className="py-2.5 px-3 sm:px-3.5 w-28 min-w-[95px] text-center">d/f</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-slate-700">
             {paginatedRecords.length === 0 ? (
               <tr>
-                <td colSpan={4} className="py-12 text-center text-slate-400">
-                  <div className="flex flex-col items-center justify-center space-y-2 max-w-sm mx-auto">
+                <td colSpan={6} className="py-12 text-center text-slate-400">
+                  <div className="flex flex-col items-center justify-center space-y-2 max-w-sm mx-auto px-4">
                     <AlertTriangle className="w-5 h-5 text-slate-400" />
                     <p className="font-semibold text-xs text-slate-600">
                       {flaggedRecords.length === 0
@@ -189,9 +195,9 @@ export const AuditTable: React.FC<AuditTableProps> = ({
                     className="bg-rose-50/40 hover:bg-rose-100/50 transition-colors"
                   >
                     {/* reg no */}
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono font-bold text-slate-900">
+                    <td className="py-2.5 px-3 sm:px-3.5 whitespace-nowrap font-mono font-bold text-slate-900">
                       <div className="flex items-center space-x-1.5">
-                        <span className="bg-amber-300 text-slate-950 px-2 py-0.5 rounded border border-amber-400 text-xs font-extrabold">
+                        <span className="bg-amber-300 text-slate-950 px-2 py-0.5 rounded border border-amber-400 text-xs font-extrabold tracking-wide">
                           {r['reg no'] || 'UNKNOWN'}
                         </span>
                         <button
@@ -209,20 +215,30 @@ export const AuditTable: React.FC<AuditTableProps> = ({
                       </div>
                     </td>
 
+                    {/* make */}
+                    <td className="py-2.5 px-3 sm:px-3.5 whitespace-nowrap font-semibold text-slate-800 uppercase text-xs">
+                      {r['make'] || '—'}
+                    </td>
+
+                    {/* model */}
+                    <td className="py-2.5 px-3 sm:px-3.5 whitespace-nowrap font-medium text-slate-700 text-xs">
+                      {r['model'] || '—'}
+                    </td>
+
                     {/* milage */}
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono font-bold text-slate-900">
+                    <td className="py-2.5 px-3 sm:px-3.5 whitespace-nowrap font-mono font-bold text-slate-900">
                       {typeof r['milage'] === 'number'
                         ? r['milage'].toLocaleString()
                         : r['milage']}
                     </td>
 
                     {/* dvsaa */}
-                    <td className="py-2.5 px-3.5 text-slate-700 leading-normal font-mono text-[11px]">
+                    <td className="py-2.5 px-3 sm:px-3.5 text-slate-700 leading-normal font-mono text-[11px]">
                       {r['dvsaa'] || '—'}
                     </td>
 
                     {/* d/f */}
-                    <td className="py-2.5 px-3.5 whitespace-nowrap text-center">
+                    <td className="py-2.5 px-3 sm:px-3.5 whitespace-nowrap text-center">
                       <span className="font-mono font-bold text-xs text-rose-700 bg-rose-100 px-2 py-0.5 rounded border border-rose-200">
                         {diffFormatted}
                       </span>
@@ -237,8 +253,8 @@ export const AuditTable: React.FC<AuditTableProps> = ({
 
       {/* Pagination Footer */}
       {filteredRecords.length > 0 && (
-        <div className="p-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-          <div>
+        <div className="p-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs text-slate-500">
+          <div className="text-center sm:text-left">
             Showing{' '}
             <span className="font-semibold text-slate-800">
               {(currentPage - 1) * pageSize + 1}

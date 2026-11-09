@@ -123,13 +123,19 @@ function detectHeaders(rawSheet) {
   );
 
   let regCol = '';
+  let makeCol = '';
+  let modelCol = '';
   let milCol = '';
   let dvsaCol = '';
 
   for (const col of headers) {
-    const lower = col.toLowerCase();
+    const lower = col.toLowerCase().trim();
     if (!regCol && (lower.includes('registration') || lower.includes('vrm') || lower === 'reg' || lower === 'reg no')) {
       regCol = col;
+    } else if (!makeCol && (lower === 'make' || lower.includes('manufacturer'))) {
+      makeCol = col;
+    } else if (!modelCol && lower === 'model') {
+      modelCol = col;
     } else if (
       !dvsaCol &&
       (lower.includes('dvsa') || lower.includes('mot mileage') || lower.includes('dvsaa'))
@@ -145,7 +151,27 @@ function detectHeaders(rawSheet) {
     }
   }
 
+  if (!makeCol) {
+    for (const col of headers) {
+      if (col.toLowerCase().trim().includes('make')) {
+        makeCol = col;
+        break;
+      }
+    }
+  }
+
+  if (!modelCol) {
+    for (const col of headers) {
+      if (col.toLowerCase().trim().includes('model')) {
+        modelCol = col;
+        break;
+      }
+    }
+  }
+
   if (!regCol && headers.length > 5) regCol = headers[5];
+  if (!makeCol && headers.length > 6) makeCol = headers[6];
+  if (!modelCol && headers.length > 7) modelCol = headers[7];
   if (!milCol && headers.length > 16) milCol = headers[16];
   if (!dvsaCol && headers.length > 23) dvsaCol = headers[23];
 
@@ -156,7 +182,7 @@ function detectHeaders(rawSheet) {
   return {
     headerRowIndex,
     headers,
-    mapping: { regCol, milCol, dvsaCol },
+    mapping: { regCol, makeCol, modelCol, milCol, dvsaCol },
   };
 }
 
@@ -305,6 +331,8 @@ Glass Trade Price
 
   assert.equal(det.headerRowIndex, 0);
   assert.equal(det.mapping.regCol, 'Registration Number');
+  assert.equal(det.mapping.makeCol, 'Make');
+  assert.equal(det.mapping.modelCol, 'Model');
   assert.equal(det.mapping.milCol, 'Mileage');
   assert.equal(det.mapping.dvsaCol, 'DVSA Mileage');
 
@@ -321,6 +349,8 @@ Glass Trade Price
     const res = audit(v['Mileage'], v['DVSA Mileage'], 20000);
     return {
       'reg no': v['Registration Number'],
+      'make': v['Make'],
+      'model': v['Model'],
       'milage': v['Mileage'],
       'dvsaa': v['DVSA Mileage'],
       'd/f': res.df,
@@ -333,15 +363,17 @@ Glass Trade Price
 
   // Verify vehicles with difference >= 20,000 are flagged with exact d/f difference
   const sampleVehiclesWithDiscrepancies = [
-    { reg: 'TEST 1', mil: '91,094', dvsa: '57k' }, // diff = 34,094 >= 20,000
-    { reg: 'TEST 2', mil: '114,305', dvsa: '78k' }, // diff = 36,305 >= 20,000
-    { reg: 'TEST 3', mil: '45,000', dvsa: '42k' }, // diff = 3,000 < 20,000
+    { reg: 'TEST 1', make: 'AUDI', model: 'A1', mil: '91,094', dvsa: '57k' }, // diff = 34,094 >= 20,000
+    { reg: 'TEST 2', make: 'BMW', model: '3 SERIES', mil: '114,305', dvsa: '78k' }, // diff = 36,305 >= 20,000
+    { reg: 'TEST 3', make: 'FORD', model: 'FIESTA', mil: '45,000', dvsa: '42k' }, // diff = 3,000 < 20,000
   ];
 
   const auditedDiscrepancies = sampleVehiclesWithDiscrepancies.map((v) => {
     const res = audit(v.mil, v.dvsa, 20000);
     return {
       'reg no': v.reg,
+      'make': v.make,
+      'model': v.model,
       'milage': v.mil,
       'dvsaa': v.dvsa,
       'd/f': res.df,
@@ -356,20 +388,39 @@ Glass Trade Price
     ['TEST 1', 'TEST 2']
   );
   assert.deepEqual(
+    flaggedOnly.map((r) => r['make']),
+    ['AUDI', 'BMW']
+  );
+  assert.deepEqual(
+    flaggedOnly.map((r) => r['model']),
+    ['A1', '3 SERIES']
+  );
+  assert.deepEqual(
     flaggedOnly.map((r) => r['d/f']),
     [34094, 36305]
   );
 
-  // Verify 4-column export format: reg no, milage, dvsaa, d/f
+  // Verify export format includes make and model: reg no, make, model, milage, dvsaa, d/f
   const exportPayload = flaggedOnly.map((r) => ({
     'reg no': r['reg no'],
+    'make': r['make'],
+    'model': r['model'],
     'milage': r['milage'],
     'dvsaa': r['dvsaa'],
     'd/f': r['d/f'],
   }));
   assert.equal(exportPayload.length, 2);
-  assert.deepEqual(Object.keys(exportPayload[0]), ['reg no', 'milage', 'dvsaa', 'd/f']);
+  assert.deepEqual(Object.keys(exportPayload[0]), [
+    'reg no',
+    'make',
+    'model',
+    'milage',
+    'dvsaa',
+    'd/f',
+  ]);
   assert.equal(exportPayload[0]['reg no'], 'TEST 1');
+  assert.equal(exportPayload[0]['make'], 'AUDI');
+  assert.equal(exportPayload[0]['model'], 'A1');
   assert.equal(exportPayload[0]['milage'], '91,094');
   assert.equal(exportPayload[0]['d/f'], 34094);
 });

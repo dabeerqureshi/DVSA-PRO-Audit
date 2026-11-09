@@ -144,7 +144,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`relative border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all duration-200 group ${
+        className={`relative border-2 border-dashed rounded-2xl p-5 sm:p-6 md:p-8 text-center cursor-pointer transition-all duration-200 group ${
           isDragging
             ? 'border-indigo-500 bg-indigo-50/50 scale-[1.005]'
             : 'border-slate-300 hover:border-indigo-400 bg-white hover:bg-slate-50/50'
@@ -160,21 +160,21 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 
         <div className="flex flex-col items-center justify-center space-y-2.5">
           <div
-            className={`w-12 h-12 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 ${
+            className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 ${
               isDragging
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'bg-indigo-50 text-indigo-600 border border-indigo-100'
             }`}
           >
             {isLoading ? (
-              <RefreshCw className="w-6 h-6 animate-spin" />
+              <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" />
             ) : (
-              <UploadCloud className="w-6 h-6" />
+              <UploadCloud className="w-5 h-5 sm:w-6 sm:h-6" />
             )}
           </div>
 
-          <div>
-            <p className="text-sm font-semibold text-slate-800">
+          <div className="px-2">
+            <p className="text-xs sm:text-sm font-semibold text-slate-800 break-all sm:break-normal">
               {currentFileName ? (
                 <span className="text-indigo-600 font-bold">{currentFileName}</span>
               ) : (
@@ -185,22 +185,22 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center space-x-2">
+      <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
         <button
           type="button"
           onClick={handleLoadSample}
-          className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200/80 transition shadow-xs"
+          className="inline-flex items-center justify-center space-x-1.5 px-3 py-2 sm:py-1.5 rounded-xl text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200/80 transition shadow-xs flex-1 sm:flex-none"
         >
-          <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+          <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
           <span>Load Sample (10 Vehicles)</span>
         </button>
 
         <button
           type="button"
           onClick={() => setIsPasteModalOpen(true)}
-          className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 transition shadow-xs"
+          className="inline-flex items-center justify-center space-x-1.5 px-3 py-2 sm:py-1.5 rounded-xl text-xs font-semibold bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 transition shadow-xs flex-1 sm:flex-none"
         >
-          <Clipboard className="w-3.5 h-3.5 text-slate-500" />
+          <Clipboard className="w-3.5 h-3.5 text-slate-500 shrink-0" />
           <span>Paste Data</span>
         </button>
       </div>
@@ -214,8 +214,8 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 
       {/* Paste Modal */}
       {isPasteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-5 shadow-2xl border border-slate-200 space-y-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-4 sm:p-5 shadow-2xl border border-slate-200 flex flex-col max-h-[92vh]">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
               <div className="flex items-center space-x-2">
                 <FileText className="w-4 h-4 text-indigo-600" />
@@ -232,28 +232,30 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
               </button>
             </div>
 
-            <textarea
-              rows={9}
-              value={pastedText}
-              onChange={(e) => setPastedText(e.target.value)}
-              placeholder="Paste rows copied from Excel or spreadsheet..."
-              className="w-full font-mono text-xs p-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50"
-            />
+            <div className="py-3 flex-1 min-h-0 flex flex-col">
+              <textarea
+                rows={8}
+                value={pastedText}
+                onChange={(e) => setPastedText(e.target.value)}
+                placeholder="Paste rows copied from Excel or spreadsheet..."
+                className="w-full flex-1 min-h-[160px] sm:min-h-[220px] font-mono text-xs p-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50 resize-y"
+              />
+            </div>
 
-            <div className="flex items-center justify-between pt-1">
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setPastedText(SAMPLE_AUCTION_DATA)}
-                className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold"
+                className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold py-1"
               >
                 Insert Sample
               </button>
 
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
                 <button
                   type="button"
                   onClick={() => setIsPasteModalOpen(false)}
-                  className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                  className="flex-1 sm:flex-none px-3.5 py-2 sm:py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition text-center"
                 >
                   Cancel
                 </button>
@@ -261,7 +263,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
                   type="button"
                   onClick={() => processTextData(pastedText, 'pasted_auction_input.tsv')}
                   disabled={!pastedText.trim()}
-                  className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-xs transition"
+                  className="flex-1 sm:flex-none px-3.5 py-2 sm:py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-xs transition text-center"
                 >
                   Audit Data
                 </button>

@@ -22,6 +22,8 @@ export default function Home() {
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<ColumnMapping>({
     regCol: 'Registration Number',
+    makeCol: 'Make',
+    modelCol: 'Model',
     milCol: 'Mileage',
     dvsaCol: 'DVSA Mileage',
   });
@@ -95,7 +97,7 @@ export default function Home() {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <Header hasData={records.length > 0} fileName={fileName} />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-3.5 sm:space-y-4">
         {/* Upload Zone */}
         <FileUploadZone
           onFileParsed={handleFileParsed}

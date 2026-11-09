@@ -123,6 +123,8 @@ export function auditRecords(
 ): AuditedRecord[] {
   return rows.map((row, idx) => {
     const reg = String(row[mapping.regCol] ?? '').trim();
+    const make = mapping.makeCol ? String(row[mapping.makeCol] ?? '').trim() : '';
+    const model = mapping.modelCol ? String(row[mapping.modelCol] ?? '').trim() : '';
     const rawMil = row[mapping.milCol] ?? '';
     const rawDvsa = String(row[mapping.dvsaCol] ?? '').trim();
 
@@ -146,6 +148,8 @@ export function auditRecords(
 
     return {
       'reg no': reg,
+      'make': make,
+      'model': model,
       'milage': rawMil,
       'dvsaa': rawDvsa,
       'd/f': dfVal,
@@ -222,13 +226,19 @@ export function detectHeaders(rawSheet: any[][]): {
   );
 
   let regCol = '';
+  let makeCol = '';
+  let modelCol = '';
   let milCol = '';
   let dvsaCol = '';
 
   for (const col of headers) {
-    const lower = col.toLowerCase();
+    const lower = col.toLowerCase().trim();
     if (!regCol && (lower.includes('registration') || lower.includes('vrm') || lower === 'reg' || lower === 'reg no')) {
       regCol = col;
+    } else if (!makeCol && (lower === 'make' || lower.includes('manufacturer'))) {
+      makeCol = col;
+    } else if (!modelCol && lower === 'model') {
+      modelCol = col;
     } else if (
       !dvsaCol &&
       (lower.includes('dvsa') || lower.includes('mot mileage') || lower.includes('dvsaa'))
@@ -244,12 +254,35 @@ export function detectHeaders(rawSheet: any[][]): {
     }
   }
 
+  // Secondary checks if make or model weren't matched exactly
+  if (!makeCol) {
+    for (const col of headers) {
+      const lower = col.toLowerCase().trim();
+      if (lower.includes('make')) {
+        makeCol = col;
+        break;
+      }
+    }
+  }
+
+  if (!modelCol) {
+    for (const col of headers) {
+      const lower = col.toLowerCase().trim();
+      if (lower.includes('model')) {
+        modelCol = col;
+        break;
+      }
+    }
+  }
+
   // Fallbacks by column position if not found by string
   if (!regCol && headers.length > 5) regCol = headers[5]; // Col F in BCA
+  if (!makeCol && headers.length > 6) makeCol = headers[6]; // Col G in BCA
+  if (!modelCol && headers.length > 7) modelCol = headers[7]; // Col H in BCA
   if (!milCol && headers.length > 16) milCol = headers[16]; // Col Q in BCA
   if (!dvsaCol && headers.length > 23) dvsaCol = headers[23]; // Col X in BCA
 
-  // Final fallback to first 3 headers
+  // Final fallback to first headers
   if (!regCol) regCol = headers[0] || 'Column 1';
   if (!milCol) milCol = headers[1] || 'Column 2';
   if (!dvsaCol) dvsaCol = headers[2] || 'Column 3';
@@ -257,7 +290,7 @@ export function detectHeaders(rawSheet: any[][]): {
   return {
     headerRowIndex,
     headers,
-    mapping: { regCol, milCol, dvsaCol },
+    mapping: { regCol, makeCol, modelCol, milCol, dvsaCol },
   };
 }
 

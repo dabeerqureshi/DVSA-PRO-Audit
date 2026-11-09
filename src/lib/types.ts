@@ -1,5 +1,7 @@
 export interface AuditedRecord {
   'reg no': string;
+  'make': string;
+  'model': string;
   'milage': string | number;
   'dvsaa': string;
   'd/f': number | string; // Difference between auction mileage and last DVSA reading
@@ -14,6 +16,8 @@ export interface AuditedRecord {
 
 export interface ColumnMapping {
   regCol: string;
+  makeCol?: string;
+  modelCol?: string;
   milCol: string;
   dvsaCol: string;
 }

@@ -5,9 +5,11 @@ export function exportToExcel(
   records: AuditedRecord[],
   filename: string = 'vehicle_mileage_audit.xlsx'
 ) {
-  // Format data exactly into requested 4 columns: reg no, milage, dvsaa, d/f
+  // Format data into columns: reg no, make, model, milage, dvsaa, d/f
   const exportData = records.map((r) => ({
     'reg no': r['reg no'],
+    'make': r['make'],
+    'model': r['model'],
     'milage': r['milage'],
     'dvsaa': r['dvsaa'],
     'd/f': r['d/f'],
@@ -18,6 +20,8 @@ export function exportToExcel(
   // Set column widths for clean readability
   worksheet['!cols'] = [
     { wch: 14 }, // reg no
+    { wch: 18 }, // make
+    { wch: 20 }, // model
     { wch: 12 }, // milage
     { wch: 60 }, // dvsaa
     { wch: 10 }, // d/f
@@ -35,6 +39,8 @@ export function exportToCsv(
 ) {
   const exportData = records.map((r) => ({
     'reg no': r['reg no'],
+    'make': r['make'],
+    'model': r['model'],
     'milage': r['milage'],
     'dvsaa': r['dvsaa'],
     'd/f': r['d/f'],
