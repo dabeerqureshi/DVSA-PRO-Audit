@@ -134,8 +134,9 @@ export function auditRecords(
     let dfVal: number | string = '';
 
     if (milNum !== null && dvsaNum !== null) {
-      diff = Math.abs(milNum - dvsaNum);
-      if (diff >= threshold) {
+      // Formula: milage - dvsaa most recent entry
+      diff = milNum - dvsaNum;
+      if (Math.abs(diff) >= threshold) {
         isFlagged = true;
       }
       dfVal = Math.round(diff);
@@ -169,8 +170,11 @@ export function computeStats(records: AuditedRecord[]): AuditStats {
     if (r._isFlagged) {
       flagged++;
     }
-    if (r._diff !== null && r._diff > maxDiff) {
-      maxDiff = r._diff;
+    if (r._diff !== null) {
+      const absDiff = Math.abs(r._diff);
+      if (absDiff > maxDiff) {
+        maxDiff = absDiff;
+      }
     }
   }
 

@@ -4,7 +4,6 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { Header } from '@/components/Header';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { KpiStats } from '@/components/KpiStats';
-import { AuditSettings } from '@/components/AuditSettings';
 import { ColumnMappingModal } from '@/components/ColumnMappingModal';
 import { AuditTable } from '@/components/AuditTable';
 import { AuditedRecord, AuditStats, ColumnMapping } from '@/lib/types';
@@ -15,8 +14,9 @@ import {
   extractValidVehicleRows,
 } from '@/lib/auditEngine';
 
+const THRESHOLD = 20000;
+
 export default function Home() {
-  const [threshold, setThreshold] = useState<number>(20000);
   const [rawRows, setRawRows] = useState<any[][] | null>(null);
   const [headerRowIndex, setHeaderRowIndex] = useState<number>(0);
   const [headers, setHeaders] = useState<string[]>([]);
@@ -30,11 +30,11 @@ export default function Home() {
   const [isMappingOpen, setIsMappingOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // Audited records computation
+  // Audited records computation strictly at 20,000 threshold
   const records = useMemo<AuditedRecord[]>(() => {
     if (!dataRows.length) return [];
-    return auditRecords(dataRows, mapping, threshold);
-  }, [dataRows, mapping, threshold]);
+    return auditRecords(dataRows, mapping, THRESHOLD);
+  }, [dataRows, mapping]);
 
   // Statistics computation
   const stats = useMemo<AuditStats>(() => {
@@ -95,7 +95,7 @@ export default function Home() {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <Header hasData={records.length > 0} fileName={fileName} />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
         {/* Upload Zone */}
         <FileUploadZone
           onFileParsed={handleFileParsed}
@@ -106,19 +106,11 @@ export default function Home() {
         {/* Audited Results when file is uploaded */}
         {records.length > 0 && (
           <div className="space-y-4">
-            <KpiStats stats={stats} threshold={threshold} />
-
-            <AuditSettings
-              threshold={threshold}
-              onThresholdChange={setThreshold}
-              onOpenMapping={() => setIsMappingOpen(true)}
-              mapping={mapping}
-            />
+            <KpiStats stats={stats} />
 
             <AuditTable
               records={records}
-              threshold={threshold}
-              onThresholdChange={setThreshold}
+              onOpenMapping={() => setIsMappingOpen(true)}
             />
           </div>
         )}

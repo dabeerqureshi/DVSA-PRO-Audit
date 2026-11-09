@@ -11,19 +11,18 @@ import {
   Check,
   FileSpreadsheet,
   FileText,
+  Settings2,
 } from 'lucide-react';
 import { exportToExcel, exportToCsv } from '../lib/excelExporter';
 
 interface AuditTableProps {
   records: AuditedRecord[];
-  threshold: number;
-  onThresholdChange?: (newThreshold: number) => void;
+  onOpenMapping?: () => void;
 }
 
 export const AuditTable: React.FC<AuditTableProps> = ({
   records,
-  threshold,
-  onThresholdChange,
+  onOpenMapping,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -36,7 +35,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
     setTimeout(() => setCopiedReg(null), 1500);
   };
 
-  // ONLY FLAGGED records are displayed
+  // ONLY FLAGGED records (threshold = 20,000) are displayed
   const flaggedRecords = useMemo(() => {
     return records.filter((r) => r._isFlagged);
   }, [records]);
@@ -80,10 +79,25 @@ export const AuditTable: React.FC<AuditTableProps> = ({
           <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-rose-100 text-rose-700">
             {flaggedRecords.length}
           </span>
+          <span className="text-[11px] text-slate-400">
+            (&ge; 20,000 mi difference)
+          </span>
         </div>
 
         {/* Action Controls & Search */}
         <div className="flex flex-wrap items-center gap-2">
+          {onOpenMapping && (
+            <button
+              type="button"
+              onClick={onOpenMapping}
+              className="inline-flex items-center px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+              title="Edit column mapping"
+            >
+              <Settings2 className="w-3.5 h-3.5 mr-1 text-slate-500" />
+              <span>Columns</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleDownloadExcel}
@@ -152,20 +166,9 @@ export const AuditTable: React.FC<AuditTableProps> = ({
                     <AlertTriangle className="w-5 h-5 text-slate-400" />
                     <p className="font-semibold text-xs text-slate-600">
                       {flaggedRecords.length === 0
-                        ? `No discrepancies >= ${threshold.toLocaleString()} miles`
+                        ? 'No discrepancies \u2265 20,000 miles'
                         : 'No matching records found'}
                     </p>
-                    {flaggedRecords.length === 0 && onThresholdChange && (
-                      <div className="flex items-center space-x-1.5 pt-1">
-                        <button
-                          type="button"
-                          onClick={() => onThresholdChange(10000)}
-                          className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-                        >
-                          Try 10k threshold
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </td>
               </tr>

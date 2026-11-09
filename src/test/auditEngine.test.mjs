@@ -202,8 +202,9 @@ function audit(milage, dvsaa, threshold = 20000) {
   const milNum = parseMileage(milage);
   const { value: dvsaNum } = parseLastDvsa(dvsaa);
   if (milNum === null || dvsaNum === null) return { isFlagged: false, diff: null, df: '' };
-  const diff = Math.abs(milNum - dvsaNum);
-  const isFlagged = diff >= threshold;
+  // Formula: milage - dvsaa most recent entry
+  const diff = milNum - dvsaNum;
+  const isFlagged = Math.abs(diff) >= threshold;
   return { isFlagged, diff: Math.round(diff), df: isFlagged ? Math.round(diff) : '' };
 }
 
@@ -252,7 +253,7 @@ test('Vehicles audit correctly against 20,000 threshold and d/f contains differe
 
   const res4 = audit('1', '37k (07/11/2022), 47k (14/11/2023), 57k (08/11/2024), 65k (18/11/2025)', 20000);
   assert.equal(res4.isFlagged, true);
-  assert.equal(res4.df, 64999);
+  assert.equal(res4.df, -64999); // 1 - 65000 = -64999
 
   const res5 = audit('103,642', '47k (03/09/2024), 73k (14/08/2025)', 20000);
   assert.equal(res5.isFlagged, true);
@@ -307,7 +308,7 @@ Glass Trade Price
   );
   assert.equal(cleanVehicles.length, 10);
 
-  // At 20,000 threshold, verify all 10 are within threshold
+  // Strictly verify against the fixed 20,000 threshold
   const audited20k = cleanVehicles.map((v) => {
     const res = audit(v['Mileage'], v['DVSA Mileage'], 20000);
     return {
@@ -320,45 +321,49 @@ Glass Trade Price
   });
 
   const flagged20k = audited20k.filter((r) => r._isFlagged);
-  assert.equal(flagged20k.length, 0);
+  assert.equal(flagged20k.length, 0); // All 10 vehicles in this specific auction batch have diff < 20,000
 
-  // At 10,000 threshold, verify 5 are flagged and their d/f values contain the exact differences
-  const audited10k = cleanVehicles.map((v) => {
-    const res = audit(v['Mileage'], v['DVSA Mileage'], 10000);
+  // Verify vehicles with difference >= 20,000 are flagged with exact d/f difference
+  const sampleVehiclesWithDiscrepancies = [
+    { reg: 'TEST 1', mil: '91,094', dvsa: '57k' }, // diff = 34,094 >= 20,000
+    { reg: 'TEST 2', mil: '114,305', dvsa: '78k' }, // diff = 36,305 >= 20,000
+    { reg: 'TEST 3', mil: '45,000', dvsa: '42k' }, // diff = 3,000 < 20,000
+  ];
+
+  const auditedDiscrepancies = sampleVehiclesWithDiscrepancies.map((v) => {
+    const res = audit(v.mil, v.dvsa, 20000);
     return {
-      'reg no': v['Registration Number'],
-      'milage': v['Mileage'],
-      'dvsaa': v['DVSA Mileage'],
+      'reg no': v.reg,
+      'milage': v.mil,
+      'dvsaa': v.dvsa,
       'd/f': res.df,
       _isFlagged: res.isFlagged,
     };
   });
 
-  const flagged10k = audited10k.filter((r) => r._isFlagged);
-  assert.equal(flagged10k.length, 5);
+  const flaggedOnly = auditedDiscrepancies.filter((r) => r._isFlagged);
+  assert.equal(flaggedOnly.length, 2);
   assert.deepEqual(
-    flagged10k.map((r) => r['reg no']),
-    ['LB70 HNX', 'RF69 EGX', 'BD69 WJM', 'YM19 OOJ', 'BH19 AYX']
+    flaggedOnly.map((r) => r['reg no']),
+    ['TEST 1', 'TEST 2']
+  );
+  assert.deepEqual(
+    flaggedOnly.map((r) => r['d/f']),
+    [34094, 36305]
   );
 
-  // Verify d/f contains exact difference numbers
-  assert.deepEqual(
-    flagged10k.map((r) => r['d/f']),
-    [10090, 14672, 11765, 19521, 11340]
-  );
-
-  // Verify 4-column export payload format: reg no, milage, dvsaa, d/f
-  const exportPayload = flagged10k.map((r) => ({
+  // Verify 4-column export format: reg no, milage, dvsaa, d/f
+  const exportPayload = flaggedOnly.map((r) => ({
     'reg no': r['reg no'],
     'milage': r['milage'],
     'dvsaa': r['dvsaa'],
     'd/f': r['d/f'],
   }));
-  assert.equal(exportPayload.length, 5);
+  assert.equal(exportPayload.length, 2);
   assert.deepEqual(Object.keys(exportPayload[0]), ['reg no', 'milage', 'dvsaa', 'd/f']);
-  assert.equal(exportPayload[0]['reg no'], 'LB70 HNX');
-  assert.equal(exportPayload[0]['milage'], '100,090');
-  assert.equal(exportPayload[0]['d/f'], 10090);
+  assert.equal(exportPayload[0]['reg no'], 'TEST 1');
+  assert.equal(exportPayload[0]['milage'], '91,094');
+  assert.equal(exportPayload[0]['d/f'], 34094);
 });
 
 test('Chronological and reverse chronological DVSA date stamps both identify the latest reading', () => {

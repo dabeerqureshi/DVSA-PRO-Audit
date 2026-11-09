@@ -31,8 +31,8 @@ The export pipeline generates files (.xlsx and .csv) formatted with the exact 4 
    - Evaluates `k` multipliers (e.g., `57k` $\rightarrow$ $57,000$) and full numbers (`118,505` $\rightarrow$ $118,505$).
 
 3. **Discrepancy Evaluation**:
-   $$\Delta = |\text{milage} - \text{last\_dvsa}|$$
-   $$\text{d/f} = \Delta \quad \text{for flagged records where } \Delta \ge 20,000$$
+   $$\text{d/f} = \text{milage} - \text{last\_dvsa} \quad (\text{most recent DVSA MOT entry})$$
+   $$\text{Flagged when } |\text{d/f}| \ge 20,000$$
    - Production default threshold is **20,000 miles** (user-configurable to 10k, 20k, 30k, 50k, or custom numeric).
 
 ---
