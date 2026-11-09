@@ -35,11 +35,18 @@ export const AuditTable: React.FC<AuditTableProps> = ({
     setTimeout(() => setCopiedReg(null), 1500);
   };
 
-  // ONLY FLAGGED records (threshold = 20,000, excluding placeholder mileage 1 or 999,999) are displayed
+  // ONLY FLAGGED records (threshold = 20,000, excluding placeholder mileage 1 or 999,999) are displayed,
+  // organized with the highest difference (d/f) first
   const flaggedRecords = useMemo(() => {
-    return records.filter(
-      (r) => r._isFlagged && r._parsedMileage !== 1 && r._parsedMileage !== 999999
-    );
+    return records
+      .filter(
+        (r) => r._isFlagged && r._parsedMileage !== 1 && r._parsedMileage !== 999999
+      )
+      .sort((a, b) => {
+        const valA = typeof a['d/f'] === 'number' ? a['d/f'] : (a._diff ?? 0);
+        const valB = typeof b['d/f'] === 'number' ? b['d/f'] : (b._diff ?? 0);
+        return Number(valB) - Number(valA);
+      });
   }, [records]);
 
   // Search filter applied to flagged records
@@ -163,7 +170,12 @@ export const AuditTable: React.FC<AuditTableProps> = ({
               <th className="py-2.5 px-3 sm:px-3.5 w-32 min-w-[110px]">model</th>
               <th className="py-2.5 px-3 sm:px-3.5 w-24 min-w-[85px]">milage</th>
               <th className="py-2.5 px-3 sm:px-3.5 min-w-[200px]">dvsaa</th>
-              <th className="py-2.5 px-3 sm:px-3.5 w-28 min-w-[95px] text-center">d/f</th>
+              <th className="py-2.5 px-3 sm:px-3.5 w-28 min-w-[95px] text-center">
+                <span className="inline-flex items-center justify-center space-x-1">
+                  <span>d/f</span>
+                  <span className="text-[10px] text-rose-600 font-extrabold" title="Sorted highest difference first">&darr;</span>
+                </span>
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-slate-700">

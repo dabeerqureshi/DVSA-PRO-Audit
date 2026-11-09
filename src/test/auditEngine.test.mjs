@@ -455,6 +455,13 @@ Glass Trade Price
     [34094, 36305]
   );
 
+  // Verify descending organization puts highest difference first
+  const sortedDescending = [...flaggedOnly].sort((a, b) => Number(b['d/f']) - Number(a['d/f']));
+  assert.equal(sortedDescending[0]['reg no'], 'TEST 2'); // 36,305 is higher than 34,094
+  assert.equal(sortedDescending[0]['d/f'], 36305);
+  assert.equal(sortedDescending[1]['reg no'], 'TEST 1');
+  assert.equal(sortedDescending[1]['d/f'], 34094);
+
   // Verify export format includes make and model: reg no, make, model, milage, dvsaa, d/f
   const exportPayload = flaggedOnly.map((r) => ({
     'reg no': r['reg no'],
